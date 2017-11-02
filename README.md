@@ -30,17 +30,15 @@ var dims = [width, height, depth]
 var bounds = [[0,0,0], [width, height, depth]]
 
 var volumePlot = createVolume({
+	gl: gl,
 	values: data,
 	dimensions: dims,
 	isoBounds: [1600, 2000],
-	vertexIntensityBounds: [1000, 2000]
+	intensityBounds: [1000, 2000],
+	colormap: 'portland'
 }, bounds)
 
-volumePlot.colormap = 'portland'
-
-var mesh = createMesh(gl, volumePlot)
-
-scene.add(mesh)
+scene.add(gl)
 ```
 
 [Try out the example in your browser](http://gl-vis.github.io/gl-volume3d/)
@@ -50,7 +48,7 @@ scene.add(mesh)
 ```
 npm i gl-volume3d
 ```
-    
+
 # Basic interface
 
 ## Constructor
@@ -60,10 +58,11 @@ Creates a volume visualization out of a 3D array.
 
 * `params` is an object that has the following properties:
 
+	+ `gl` *(Required)* WebGL context to use
     + `values` *(Required)* An flattened 3D array of values
     + `dimensions` *(Required)* The dimensions of the array
     + `isoBounds` *(Recommended)* The range of values to envelop with the isosurface. Defaults to [1, Infinity], which creates an isosurface that has all values 1 and larger inside it.
-    + `vertexIntensityBounds` *(Optional)* The range of values to map to [0..1] intensities. Defaults to the minimum and maximum values of the values array.
+    + `intensityBounds` *(Optional)* The range of values to map to [0..1] intensities. Defaults to the minimum and maximum values of the values array.
 
 * `bounds` is a bounds object that tells what part of the 3D array to display. It defaults to [[0, 0, 0], [width, height, depth]].
 
