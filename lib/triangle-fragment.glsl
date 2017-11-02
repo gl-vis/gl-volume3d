@@ -31,7 +31,7 @@ void main() {
     tex.rgb = texture2D(colormap, vec2((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0)).rgb;
   }
 
-  tex.a = tex.a > 0.0 ? 0.25 : 0.0;
+  tex.a = tex.a > 0.0 && tex.a < 1.0 ? tex.a * opacity : 0.0;
 
   gl_FragColor = tex;
 

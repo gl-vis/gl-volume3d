@@ -42,8 +42,8 @@ getData('example/data/mri.csv', function(mricsv) {
   var volume = createVolume(gl, {
   	values: mri,
   	dimensions: dims,
-  	isoBounds: [0, 255],
-  	intensityBounds: [0, 1],
+  	isoBounds: [10, 88],
+  	intensityBounds: [0, 0.5],
     colormap: 'portland'
   }, bounds)
 

@@ -1,5 +1,7 @@
 "use strict";
 
+const vec4 = require('gl-vec4');
+const mat4 = require('gl-mat4');
 const createTexture = require('gl-texture2d');
 const createTriMesh = require('./lib/simplemesh.js');
 
@@ -86,7 +88,7 @@ module.exports = function createVolume(params, bounds) {
 		var u0 = 0;
 		var u1 = 1;
 		var v0 = i / depth;
-		var v1 = (i + 1) / depth;
+		var v1 = (i + 1-3/depth) / depth;
 
 		positions.push(
 			0,     0,      i,
@@ -186,7 +188,7 @@ module.exports = function createVolume(params, bounds) {
 		var u0 = 0;
 		var u1 = 1;
 		var v0 = i / width;
-		var v1 = (i + 1) / width;
+		var v1 = (i + 1-3/width) / width;
 
 		positions.push(
 			i, 0,      0,
@@ -226,10 +228,47 @@ module.exports = function createVolume(params, bounds) {
 		})
 	)
 
+	meshes = [meshes[2], meshes[1], meshes[0]];
+
+	v = vec4.create();
+	const inv = mat4.create();
 
 	return {
 		draw: function(cameraParams) {
-			meshes.forEach(m => m.draw(cameraParams));
+			vec4.set(v, 0, 0, 1, 0);
+			mat4.invert(inv, cameraParams.view);
+			vec4.transformMat4(v, v, inv);
+			v[0] = Math.abs(v[0]);
+			v[1] = Math.abs(v[1]);
+			v[2] = Math.abs(v[2]);
+			if (v[2] < v[1]) {
+				if (v[2] < v[0]) {
+					meshes[2].draw(cameraParams);
+					if (v[0] < v[1]) {
+						meshes[0].draw(cameraParams);
+						meshes[1].draw(cameraParams);
+					} else {
+						meshes[1].draw(cameraParams);
+						meshes[0].draw(cameraParams);
+					}
+				} else {
+					meshes[0].draw(cameraParams);
+					meshes[2].draw(cameraParams);
+					meshes[1].draw(cameraParams);
+				}
+			} else if (v[2] < v[0]) {
+				meshes[1].draw(cameraParams);
+				meshes[2].draw(cameraParams);
+				meshes[0].draw(cameraParams);
+			} else if (v[1] < v[0]) {
+				meshes[1].draw(cameraParams);
+				meshes[0].draw(cameraParams);
+				meshes[2].draw(cameraParams);
+			} else {
+				meshes[0].draw(cameraParams);
+				meshes[1].draw(cameraParams);
+				meshes[2].draw(cameraParams);
+			}
 		}
 	};
 };
