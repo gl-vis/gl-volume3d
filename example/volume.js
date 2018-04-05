@@ -35,20 +35,41 @@ getData('example/data/mri.csv', function(mricsv) {
   var mri = parseCSV(mricsv.replace(/\r?\n/g, ','))[0];
   mri.pop();
 
-  var dims = [128, 27, 128]
+  var dims = [128, 64, 128]
   var [width, height, depth] = dims;
-  var bounds = [[0,0,0], [width, height, depth]]
+  var bounds = [[0,0,0], [25, 12.5, 25]]
+
+  var meshgrid = [[],[],[]];
+  for (var i=0; i<128; i++) meshgrid[0].push(bounds[0][0] + (bounds[1][0]-bounds[0][0]) * i/127);
+  for (var i=0; i<27; i++) meshgrid[1].push(bounds[0][1] + (bounds[1][1]-bounds[0][1]) * i/26);
+  for (var i=0; i<128; i++) meshgrid[2].push(bounds[0][2] + (bounds[1][2]-bounds[0][2]) * i/127);
+
+  var alphamap = [];
+  for (var i=0; i<256; i++) {
+    var v = i/255;
+    var a = 1;
+    if (v < 0.1) {
+      a = v*2;
+    }
+    if (v > 0.3) {
+      a = 0.2 - (v-0.3)/0.7;
+    }
+    alphamap[i] = a;
+  }
 
   var volume = createVolume(gl, {
   	values: mri,
+    meshgrid: meshgrid,
   	dimensions: dims,
   	isoBounds: [10, 88],
-  	intensityBounds: [0, 0.5],
-    colormap: 'portland'
+  	intensityBounds: [0.1, 0.4],
+    opacity: 0.1,
+    alphamap: alphamap,
+    colormap: 'jet'
   }, bounds)
 
   var camera = createCamera(canvas, {
-    eye:    [190, 190, 190],
+    eye:    [90, 90, 90],
     center: [0.5*(bounds[0][0]+bounds[1][0]),
     0.5*(bounds[0][1]+bounds[1][1]),
     0.5*(bounds[0][2]+bounds[1][2])],
@@ -59,7 +80,7 @@ getData('example/data/mri.csv', function(mricsv) {
   console.timeEnd("Total mesh creation time")
 
   var select = createSelect(gl, [canvas.width, canvas.height])
-  var tickSpacing = 5;
+  var tickSpacing = 1;
   var ticks = bounds[0].map((v,i) => {
     var arr = [];
     var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;

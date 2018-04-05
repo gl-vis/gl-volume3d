@@ -12,7 +12,9 @@ uniform float roughness
             , opacity;
 uniform sampler2D texture;
 uniform sampler2D colormap;
+uniform sampler2D alphamap;
 uniform bool useColormap;
+uniform bool useAlphamap;
 
 varying vec3 f_lightDirection
            , f_eyeDirection
@@ -27,11 +29,17 @@ void main() {
 
   vec4 tex = texture2D(texture, f_uv);
 
+  float intensity = clamp((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
+
   if (useColormap) {
-    tex.rgb = texture2D(colormap, vec2((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0)).rgb;
+    tex.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;
   }
 
-  tex.a = tex.a > 0.0 && tex.a < 1.0 ? tex.a * opacity : 0.0;
+  if (useAlphamap) {
+    tex.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;
+  } else {
+    tex.a = intensity * opacity;
+  }
 
   gl_FragColor = tex;
 

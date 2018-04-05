@@ -60,9 +60,13 @@ Creates a volume visualization out of a 3D array.
 
 	+ `gl` *(Required)* WebGL context to use
     + `values` *(Required)* An flattened 3D array of values
-    + `dimensions` *(Required)* The dimensions of the array
+    + `meshgrid` *(Optional)* Meshgrid to use for the value coordinates
+    + `dimensions` *(Required)* The dimensions of the array. When used with meshgrid, sets the resolution of the 3D texture. When using meshgrid, the 3D texture values are sampled in an uniform fashion between the start and end coordinates of the meshgrid.
     + `isoBounds` *(Recommended)* The range of values to envelop with the isosurface. Defaults to [1, Infinity], which creates an isosurface that has all values 1 and larger inside it.
     + `intensityBounds` *(Optional)* The range of values to map to [0..1] intensities. Defaults to the minimum and maximum values of the values array.
+    + `colormap` *(Optional)* Name of the color map to use.
+    + `alphamap` *(Optional)* Opacity lookup table, a 256-element array that maps intensity to voxel opacity. The first element is intensity 0 (after intensityBounds mapping), the last element is intensity 1.
+    + `opacity` *(Optional)* Multiplier for the voxel opacities. Used for controlling the volume transparency.
 
 * `bounds` is a bounds object that tells what part of the 3D array to display. It defaults to [[0, 0, 0], [width, height, depth]].
 

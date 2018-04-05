@@ -5,6 +5,131 @@ const mat4 = require('gl-mat4');
 const createTexture = require('gl-texture2d');
 const createTriMesh = require('./lib/simplemesh.js');
 
+
+const findLastSmallerIndex = function(points, v) {
+  for (var i=0; i<points.length; i++) {
+  	var p = points[i];
+  	if (p === v) return i;
+    if (p > v) return i-1;
+  }
+  return i;
+};
+
+const clamp = function(v, min, max) {
+	return v < min ? min : (v > max ? max : v);
+};
+
+const lerp = function(u, v, t) {
+	return u * (1-t) + v * t;
+};
+
+const sampleMeshgridScalar = function(x, y, z, array, meshgrid, clampOverflow) {
+	var w = meshgrid[0].length;
+	var h = meshgrid[1].length;
+	var d = meshgrid[2].length;
+
+	// Find the index of the nearest smaller value in the meshgrid for each coordinate of (x,y,z).
+	// The nearest smaller value index for x is the index x0 such that
+	// meshgrid[0][x0] < x and for all x1 > x0, meshgrid[0][x1] >= x.
+	var x0 = findLastSmallerIndex(meshgrid[0], x);
+	var y0 = findLastSmallerIndex(meshgrid[1], y);
+	var z0 = findLastSmallerIndex(meshgrid[2], z);
+
+	// Get the nearest larger meshgrid value indices.
+	// From the above "nearest smaller value", we know that
+	//   meshgrid[0][x0] < x
+	//   meshgrid[0][x0+1] >= x
+	var x1 = x0 + 1;
+	var y1 = y0 + 1;
+	var z1 = z0 + 1;
+
+	if (meshgrid[0][x0] === x) x1 = x0;
+	if (meshgrid[1][y0] === y) y1 = y0;
+	if (meshgrid[2][z0] === z) z1 = z0;
+
+	if (clampOverflow) {
+		x0 = clamp(x0, 0, w-1);
+		x1 = clamp(x1, 0, w-1);
+		y0 = clamp(y0, 0, h-1);
+		y1 = clamp(y1, 0, h-1);
+		z0 = clamp(z0, 0, d-1);
+		z1 = clamp(z1, 0, d-1);
+	}
+
+	// Reject points outside the meshgrid, return a zero.
+	if (x0 < 0 || y0 < 0 || z0 < 0 || x1 >= w || y1 >= h || z1 >= d) {
+		return 0;
+	}
+
+	// Normalize point coordinates to 0..1 scaling factor between x0 and x1.
+	var xf = (x - meshgrid[0][x0]) / (meshgrid[0][x1] - meshgrid[0][x0]);
+	var yf = (y - meshgrid[1][y0]) / (meshgrid[1][y1] - meshgrid[1][y0]);
+	var zf = (z - meshgrid[2][z0]) / (meshgrid[2][z1] - meshgrid[2][z0]);
+
+	if (xf < 0 || xf > 1 || isNaN(xf)) xf = 0;
+	if (yf < 0 || yf > 1 || isNaN(yf)) yf = 0;
+	if (zf < 0 || zf > 1 || isNaN(zf)) zf = 0;
+
+	var z0off = z0*w*h;
+	var z1off = z1*w*h;
+
+	var y0off = y0*w;
+	var y1off = y1*w;
+
+	var x0off = x0;
+	var x1off = x1;
+
+	// Sample data array around the (x,y,z) point.
+	//  vZYX = array[zZoff + yYoff + xXoff]
+	var v000 = array[y0off + z0off + x0off];
+	var v001 = array[y0off + z0off + x1off];
+	var v010 = array[y1off + z0off + x0off];
+	var v011 = array[y1off + z0off + x1off];
+	var v100 = array[y0off + z1off + x0off];
+	var v101 = array[y0off + z1off + x1off];
+	var v110 = array[y1off + z1off + x0off];
+	var v111 = array[y1off + z1off + x1off];
+
+	var result, tmp, tmp2;
+
+	// Average samples according to distance to point.
+	result = lerp(v000, v001, xf);
+	tmp = lerp(v010, v011, xf);
+	result = lerp(result, tmp, yf);
+	tmp = lerp(v100, v101, xf);
+	tmp2 = lerp(v110, v111, xf);
+	tmp = lerp(tmp, tmp2, yf);
+	result = lerp(result, tmp, zf);
+
+	return result;
+};
+
+/*
+	Converts values and meshgrid dataset into an uniformly sampled
+	grid with the given dimensions.
+*/
+const uniformResample = function(values, meshgrid, dimensions) {
+	var [sx, sy, sz] = [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]];
+	var [ex, ey, ez] = [meshgrid[0][meshgrid[0].length-1], meshgrid[1][meshgrid[1].length-1], meshgrid[2][meshgrid[2].length-1]];
+
+	var newValues = [];
+	
+	var [w, h, d] = dimensions;
+	var w1 = w-1, h1 = h-1, d1 = d-1;
+
+	for (var z=0; z<d; z++) {
+		var rz = sz + (ez-sz) * (z / d1); 
+		for (var y=0; y<h; y++) {
+			var ry = sy + (ey-sy) * (y / h1); 
+			for (var x=0; x<w; x++) {
+				var rx = sx + (ex-sx) * (x / w1); 
+				newValues.push(sampleMeshgridScalar(rx, ry, rz, values, meshgrid, true));
+			}
+		}
+	}
+	return newValues;
+};
+
 /*
 	How this should work:
 
@@ -22,8 +147,15 @@ module.exports = function createVolume(params, bounds) {
 		params = arguments[1];
 		bounds = arguments[2];
 	}
-	const { values, dimensions, isoBounds, intensityBounds, clipBounds, colormap } = params;
+	const { dimensions, isoBounds, intensityBounds, clipBounds, colormap, alphamap, opacity, meshgrid } = params;
+	const rawValues = params.values;
 	const [width, height, depth] = dimensions;
+	var values;
+	if (meshgrid) {
+		values = uniformResample(rawValues, meshgrid, dimensions);
+	} else {
+		values = rawValues;
+	}
 
 	var valuesImgZ = new Uint8Array(values.length * 4);
 	var valuesImgX = new Uint8Array(values.length * 4);
@@ -84,6 +216,26 @@ module.exports = function createVolume(params, bounds) {
 	var positions = [];
 	var triangleUVs = [];
 
+	var modelSX = 0;
+	var modelSY = 0;
+	var modelSZ = 0;
+
+	var modelEX = width;
+	var modelEY = height;
+	var modelEZ = depth;
+
+	if (meshgrid) {
+		modelSX = meshgrid[0][0];
+		modelSY = meshgrid[1][0];
+		modelSZ = meshgrid[2][0];
+
+		modelEX = meshgrid[0][meshgrid[0].length-1];
+		modelEY = meshgrid[1][meshgrid[1].length-1];
+		modelEZ = meshgrid[2][meshgrid[2].length-1];
+	}
+
+	var rz = modelSZ + (modelEZ - modelSZ) * (i / (depth-1));
+
 	for (var i = 0; i < depth; i++) {
 		var u0 = 0;
 		var u1 = 1;
@@ -109,6 +261,12 @@ module.exports = function createVolume(params, bounds) {
 		);
 	}
 
+	for (var i=0; i<positions.length; i+=3) {
+		positions[i] = (positions[i] / width) * (modelEX-modelSX) + modelSX;
+		positions[i + 1] = (positions[i+1] / height) * (modelEY-modelSY) + modelSY;
+		positions[i + 2] = (positions[i+2] / depth) * (modelEZ-modelSZ) + modelSZ;
+	}
+
 	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
 		positions.push(positions[i-2], positions[i-1], positions[i]);
 		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
@@ -121,6 +279,8 @@ module.exports = function createVolume(params, bounds) {
 
 			texture: texZ,
 			colormap,
+			alphamap,
+			opacity,
 
 			isoBounds,
 			intensityBounds,
@@ -159,6 +319,12 @@ module.exports = function createVolume(params, bounds) {
 		);
 	}
 
+	for (var i=0; i<positions.length; i+=3) {
+		positions[i] = (positions[i] / width) * (modelEX-modelSX) + modelSX;
+		positions[i + 1] = (positions[i+1] / height) * (modelEY-modelSY) + modelSY;
+		positions[i + 2] = (positions[i+2] / depth) * (modelEZ-modelSZ) + modelSZ;
+	}
+
 	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
 		positions.push(positions[i-2], positions[i-1], positions[i]);
 		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
@@ -171,6 +337,8 @@ module.exports = function createVolume(params, bounds) {
 
 			texture: texY,
 			colormap,
+			alphamap,
+			opacity,
 
 			isoBounds,
 			intensityBounds,
@@ -209,6 +377,12 @@ module.exports = function createVolume(params, bounds) {
 		);
 	}
 
+	for (var i=0; i<positions.length; i+=3) {
+		positions[i] = (positions[i] / width) * (modelEX-modelSX) + modelSX;
+		positions[i + 1] = (positions[i+1] / height) * (modelEY-modelSY) + modelSY;
+		positions[i + 2] = (positions[i+2] / depth) * (modelEZ-modelSZ) + modelSZ;
+	}
+
 	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
 		positions.push(positions[i-2], positions[i-1], positions[i]);
 		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
@@ -221,6 +395,8 @@ module.exports = function createVolume(params, bounds) {
 
 			texture: texX,
 			colormap,
+			alphamap,
+			opacity,
 
 			isoBounds,
 			intensityBounds,
