@@ -1,12 +1,12 @@
 "use strict";
 
-const vec4 = require('gl-vec4');
-const mat4 = require('gl-mat4');
-const createTexture = require('gl-texture2d');
-const createTriMesh = require('./lib/simplemesh.js');
+var vec4 = require('gl-vec4');
+var mat4 = require('gl-mat4');
+var createTexture = require('gl-texture2d');
+var createTriMesh = require('./lib/simplemesh.js');
 
 
-const findLastSmallerIndex = function(points, v) {
+var findLastSmallerIndex = function(points, v) {
   for (var i=0; i<points.length; i++) {
   	var p = points[i];
   	if (p === v) return i;
@@ -15,15 +15,15 @@ const findLastSmallerIndex = function(points, v) {
   return i;
 };
 
-const clamp = function(v, min, max) {
+var clamp = function(v, min, max) {
 	return v < min ? min : (v > max ? max : v);
 };
 
-const lerp = function(u, v, t) {
+var lerp = function(u, v, t) {
 	return u * (1-t) + v * t;
 };
 
-const sampleMeshgridScalar = function(x, y, z, array, meshgrid, clampOverflow) {
+var sampleMeshgridScalar = function(x, y, z, array, meshgrid, clampOverflow) {
 	var w = meshgrid[0].length;
 	var h = meshgrid[1].length;
 	var d = meshgrid[2].length;
@@ -108,13 +108,13 @@ const sampleMeshgridScalar = function(x, y, z, array, meshgrid, clampOverflow) {
 	Converts values and meshgrid dataset into an uniformly sampled
 	grid with the given dimensions.
 */
-const uniformResample = function(values, meshgrid, dimensions) {
-	var [sx, sy, sz] = [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]];
-	var [ex, ey, ez] = [meshgrid[0][meshgrid[0].length-1], meshgrid[1][meshgrid[1].length-1], meshgrid[2][meshgrid[2].length-1]];
+var uniformResample = function(values, meshgrid, dimensions) {
+	var sx = meshgrid[0][0], sy = meshgrid[1][0], sz = meshgrid[2][0];
+	var ex = meshgrid[0][meshgrid[0].length-1], ey = meshgrid[1][meshgrid[1].length-1], ez = meshgrid[2][meshgrid[2].length-1];
 
 	var newValues = [];
 	
-	var [w, h, d] = dimensions;
+	var w = dimensions[0], h = dimensions[1], d = dimensions[2];
 	var w1 = w-1, h1 = h-1, d1 = d-1;
 
 	for (var z=0; z<d; z++) {
@@ -147,9 +147,16 @@ module.exports = function createVolume(params, bounds) {
 		params = arguments[1];
 		bounds = arguments[2];
 	}
-	const { dimensions, isoBounds, intensityBounds, clipBounds, colormap, alphamap, opacity, meshgrid } = params;
-	const rawValues = params.values;
-	const [width, height, depth] = dimensions;
+	var dimensions = params.dimensions, 
+		isoBounds = params.isoBounds, 
+		intensityBounds = params.intensityBounds, 
+		clipBounds = params.clipBounds, 
+		colormap = params.colormap, 
+		alphamap = params.alphamap, 
+		opacity = params.opacity,
+		meshgrid = params.meshgrid;
+	var rawValues = params.values;
+	var width = dimensions[0], height = dimensions[1], depth = dimensions[2];
 	var values;
 	if (meshgrid) {
 		values = uniformResample(rawValues, meshgrid, dimensions);
@@ -172,17 +179,17 @@ module.exports = function createVolume(params, bounds) {
 		valuesImgZ[i*4+2] = b;
 		valuesImgZ[i*4+3] = a;
 
-		let z = Math.floor(i / (width*height));
-		let y = Math.floor((i - z*width*height) / width);
-		let x = i - z*width*height - y*width;
+		var z = Math.floor(i / (width*height));
+		var y = Math.floor((i - z*width*height) / width);
+		var x = i - z*width*height - y*width;
 
-		let xOff = x * depth*height + y * depth + z;
+		var xOff = x * depth*height + y * depth + z;
 		valuesImgX[xOff * 4] = r;
 		valuesImgX[xOff * 4 + 1] = g;
 		valuesImgX[xOff * 4 + 2] = b;
 		valuesImgX[xOff * 4 + 3] = a;
 
-		let yOff = y * width*depth + z * depth + x;
+		var yOff = y * width*depth + z * depth + x;
 		valuesImgY[yOff * 4] = r;
 		valuesImgY[yOff * 4 + 1] = g;
 		valuesImgY[yOff * 4 + 2] = b;
@@ -274,17 +281,17 @@ module.exports = function createVolume(params, bounds) {
 
 	meshes.push(
 		createTriMesh(gl, {
-			positions,
-			triangleUVs,
+			positions: positions,
+			triangleUVs: triangleUVs,
 
 			texture: texZ,
-			colormap,
-			alphamap,
-			opacity,
+			colormap: colormap,
+			alphamap: alphamap,
+			opacity: opacity,
 
-			isoBounds,
-			intensityBounds,
-			clipBounds
+			isoBounds: isoBounds,
+			intensityBounds: intensityBounds,
+			clipBounds: clipBounds
 		})
 	)
 
@@ -332,17 +339,17 @@ module.exports = function createVolume(params, bounds) {
 
 	meshes.push(
 		createTriMesh(gl, {
-			positions,
-			triangleUVs,
+			positions: positions,
+			triangleUVs: triangleUVs,
 
 			texture: texY,
-			colormap,
-			alphamap,
-			opacity,
+			colormap: colormap,
+			alphamap: alphamap,
+			opacity: opacity,
 
-			isoBounds,
-			intensityBounds,
-			clipBounds
+			isoBounds: isoBounds,
+			intensityBounds: intensityBounds,
+			clipBounds: clipBounds
 		})
 	)
 
@@ -390,24 +397,24 @@ module.exports = function createVolume(params, bounds) {
 
 	meshes.push(
 		createTriMesh(gl, {
-			positions,
-			triangleUVs,
+			positions: positions,
+			triangleUVs: triangleUVs,
 
 			texture: texX,
-			colormap,
-			alphamap,
-			opacity,
+			colormap: colormap,
+			alphamap: alphamap,
+			opacity: opacity,
 
-			isoBounds,
-			intensityBounds,
-			clipBounds
+			isoBounds: isoBounds,
+			intensityBounds: intensityBounds,
+			clipBounds: clipBounds
 		})
 	)
 
 	meshes = [meshes[2], meshes[1], meshes[0]];
 
 	v = vec4.create();
-	const inv = mat4.create();
+	var inv = mat4.create();
 
 	return {
 		draw: function(cameraParams) {
