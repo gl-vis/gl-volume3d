@@ -452,6 +452,15 @@ module.exports = function createVolume(params, bounds) {
 				meshes[1].draw(cameraParams);
 				meshes[2].draw(cameraParams);
 			}
+		},
+
+		dispose: function() {
+			meshes[0].dispose();
+			meshes[1].dispose();
+			meshes[2].dispose();
+			texX.dispose();
+			texY.dispose();
+			texZ.dispose();
 		}
 	};
 };
