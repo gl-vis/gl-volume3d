@@ -168,8 +168,9 @@ module.exports = function createVolume(params, bounds) {
 	var valuesImgX = new Uint8Array(values.length * 4);
 	var valuesImgY = new Uint8Array(values.length * 4);
 	for (var i=0; i<values.length; i++) {
-		var v = values[i]; // (values[i] - isoBounds[0]) / (isoBounds[1] - isoBounds[0]);
-		// v = 255 * (v > 0 ? (v < 1 ? v : 1) : 0);
+		var v = (values[i] - isoBounds[0]) / (isoBounds[1] - isoBounds[0]);
+		v = 255 * (v >= 0 ? (v <= 1 ? v : 1) : 0);
+		
 		var r = v;
 		var g = v;
 		var b = v;
@@ -418,6 +419,10 @@ module.exports = function createVolume(params, bounds) {
 
 	return {
 		draw: function(cameraParams) {
+			this.drawTransparent(cameraParams);
+		},
+
+		drawTransparent: function(cameraParams) {
 			vec4.set(v, 0, 0, 1, 0);
 			mat4.invert(inv, cameraParams.view);
 			vec4.transformMat4(v, v, inv);
@@ -452,6 +457,14 @@ module.exports = function createVolume(params, bounds) {
 				meshes[1].draw(cameraParams);
 				meshes[2].draw(cameraParams);
 			}
+		},
+
+		isOpaque: function() {
+			return false;
+		},
+
+		isTransparent: function() {
+			return true;
 		},
 
 		dispose: function() {
