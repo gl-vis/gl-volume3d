@@ -148,8 +148,8 @@ module.exports = function createVolume(params, bounds) {
 		bounds = arguments[2];
 	}
 	var dimensions = params.dimensions, 
-		isoBounds = params.isoBounds, 
-		intensityBounds = params.intensityBounds, 
+		rawIsoBounds = params.intensityBounds, 
+		rawIntensityBounds = params.isoBounds, 
 		clipBounds = params.clipBounds, 
 		colormap = params.colormap, 
 		alphamap = params.alphamap, 
@@ -164,13 +164,40 @@ module.exports = function createVolume(params, bounds) {
 		values = rawValues;
 	}
 
+	var isoBounds = [Infinity, -Infinity];
+
+	if (rawIsoBounds) {
+		isoBounds = rawIsoBounds;
+	} else {
+		for (var i=0; i<rawValues.length; i++) {
+			var v = rawValues[i];
+			if (v < isoBounds[0]) {
+				isoBounds[0] = v;
+			}
+			if (v > isoBounds[1]) {
+				isoBounds[1] = v;
+			}
+		}
+	}
+
+	var isoMin = isoBounds[0];
+	var isoRangeRecip = 1 / (isoBounds[1] - isoBounds[0]);
+
+	var intensityBounds = [0, 1];
+	if (rawIntensityBounds) {
+		intensityBounds = [
+			(rawIntensityBounds[0] - isoMin) * isoRangeRecip,
+			(rawIntensityBounds[1] - isoMin) * isoRangeRecip
+		];
+	}
+
 	var valuesImgZ = new Uint8Array(values.length * 4);
 	var valuesImgX = new Uint8Array(values.length * 4);
 	var valuesImgY = new Uint8Array(values.length * 4);
 	for (var i=0; i<values.length; i++) {
-		var v = (values[i] - isoBounds[0]) / (isoBounds[1] - isoBounds[0]);
-		v = 255 * (v >= 0 ? (v <= 1 ? v : 1) : 0);
-		
+		var v = (values[i] - isoMin) * isoRangeRecip;
+		v = 255 * (v >= 0 ? (v <= 1 ? v : 0) : 0);
+
 		var r = v;
 		var g = v;
 		var b = v;
@@ -289,6 +316,7 @@ module.exports = function createVolume(params, bounds) {
 			colormap: colormap,
 			alphamap: alphamap,
 			opacity: opacity,
+			transparent: true,
 
 			isoBounds: isoBounds,
 			intensityBounds: intensityBounds,
@@ -347,10 +375,11 @@ module.exports = function createVolume(params, bounds) {
 			colormap: colormap,
 			alphamap: alphamap,
 			opacity: opacity,
+			transparent: true,
 
 			isoBounds: isoBounds,
 			intensityBounds: intensityBounds,
-			clipBounds: clipBounds
+			clipBounds: clipBounds			
 		})
 	)
 
@@ -405,6 +434,7 @@ module.exports = function createVolume(params, bounds) {
 			colormap: colormap,
 			alphamap: alphamap,
 			opacity: opacity,
+			transparent: true,
 
 			isoBounds: isoBounds,
 			intensityBounds: intensityBounds,
@@ -418,6 +448,11 @@ module.exports = function createVolume(params, bounds) {
 	var inv = mat4.create();
 
 	return {
+		meshes: meshes,
+		texX: texX,
+		texY: texY,
+		texZ: texZ,
+
 		draw: function(cameraParams) {
 			this.drawTransparent(cameraParams);
 		},
@@ -431,31 +466,31 @@ module.exports = function createVolume(params, bounds) {
 			v[2] = Math.abs(v[2]);
 			if (v[2] < v[1]) {
 				if (v[2] < v[0]) {
-					meshes[2].draw(cameraParams);
+					this.meshes[2].draw(cameraParams);
 					if (v[0] < v[1]) {
-						meshes[0].draw(cameraParams);
-						meshes[1].draw(cameraParams);
+						this.meshes[0].draw(cameraParams);
+						this.meshes[1].draw(cameraParams);
 					} else {
-						meshes[1].draw(cameraParams);
-						meshes[0].draw(cameraParams);
+						this.meshes[1].draw(cameraParams);
+						this.meshes[0].draw(cameraParams);
 					}
 				} else {
-					meshes[0].draw(cameraParams);
-					meshes[2].draw(cameraParams);
-					meshes[1].draw(cameraParams);
+					this.meshes[0].draw(cameraParams);
+					this.meshes[2].draw(cameraParams);
+					this.meshes[1].draw(cameraParams);
 				}
 			} else if (v[2] < v[0]) {
-				meshes[1].draw(cameraParams);
-				meshes[2].draw(cameraParams);
-				meshes[0].draw(cameraParams);
+				this.meshes[1].draw(cameraParams);
+				this.meshes[2].draw(cameraParams);
+				this.meshes[0].draw(cameraParams);
 			} else if (v[1] < v[0]) {
-				meshes[1].draw(cameraParams);
-				meshes[0].draw(cameraParams);
-				meshes[2].draw(cameraParams);
+				this.meshes[1].draw(cameraParams);
+				this.meshes[0].draw(cameraParams);
+				this.meshes[2].draw(cameraParams);
 			} else {
-				meshes[0].draw(cameraParams);
-				meshes[1].draw(cameraParams);
-				meshes[2].draw(cameraParams);
+				this.meshes[0].draw(cameraParams);
+				this.meshes[1].draw(cameraParams);
+				this.meshes[2].draw(cameraParams);
 			}
 		},
 
@@ -468,12 +503,9 @@ module.exports = function createVolume(params, bounds) {
 		},
 
 		dispose: function() {
-			meshes[0].dispose();
-			meshes[1].dispose();
-			meshes[2].dispose();
-			texX.dispose();
-			texY.dispose();
-			texZ.dispose();
+			this.meshes[0].dispose();
+			this.meshes[1].dispose();
+			this.meshes[2].dispose();
 		}
 	};
 };

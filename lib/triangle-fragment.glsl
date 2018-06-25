@@ -22,10 +22,10 @@ varying vec3 f_lightDirection
 varying vec2 f_uv;
 
 void main() {
-  if(any(lessThan(f_data, clipBounds[0])) ||
-     any(greaterThan(f_data, clipBounds[1]))) {
-    discard;
-  }
+  //if(any(lessThan(f_data, clipBounds[0])) ||
+  //   any(greaterThan(f_data, clipBounds[1]))) {
+  //  discard;
+  //}
 
   vec4 tex = texture2D(texture, f_uv);
 
