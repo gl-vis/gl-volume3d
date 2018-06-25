@@ -495,11 +495,11 @@ module.exports = function createVolume(params, bounds) {
 		},
 
 		isOpaque: function() {
-			return false;
+			return true;
 		},
 
 		isTransparent: function() {
-			return true;
+			return false;
 		},
 
 		dispose: function() {

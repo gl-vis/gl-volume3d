@@ -41,6 +41,8 @@ void main() {
     tex.a = intensity * opacity;
   }
 
+  tex.rgb *= tex.a;
+
   gl_FragColor = tex;
 
   /*
