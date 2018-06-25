@@ -314,6 +314,11 @@ module.exports = function createVolume(params, bounds) {
 		texY: texY,
 		texZ: texZ,
 
+		bounds: [
+			[modelSX, modelSY, modelSZ],
+			[modelEX, modelEY, modelEZ]
+		],
+
 		draw: function(cameraParams) {
 			this.drawTransparent(cameraParams);
 		},
