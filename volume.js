@@ -95,7 +95,7 @@ module.exports = function createVolume(params, bounds) {
 		valuesImgX[xOff * 4 + 2] = b;
 		valuesImgX[xOff * 4 + 3] = a;
 
-		var yOff = y * width*depth + z * depth + x;
+		var yOff = y * width*depth + z * width + x;
 		valuesImgY[yOff * 4] = r;
 		valuesImgY[yOff * 4 + 1] = g;
 		valuesImgY[yOff * 4 + 2] = b;
