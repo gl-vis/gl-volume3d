@@ -69,9 +69,32 @@ module.exports = function createVolume(params, bounds) {
 		];
 	}
 
-	var valuesImgZ = new Uint8Array(values.length * 4);
-	var valuesImgX = new Uint8Array(values.length * 4);
-	var valuesImgY = new Uint8Array(values.length * 4);
+	var maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
+	var zTilesX = Math.floor(maxTextureSize / width);
+	var zTilesY = Math.floor(maxTextureSize / height);
+	var maxZTiles = zTilesX * zTilesY;
+
+	var yTilesX = Math.floor(maxTextureSize / width);
+	var yTilesY = Math.floor(maxTextureSize / depth);
+	var maxYTiles = yTilesX * yTilesY;
+
+	var xTilesX = Math.floor(maxTextureSize / depth);
+	var xTilesY = Math.floor(maxTextureSize / height);
+	var maxXTiles = xTilesX * xTilesY;
+
+	if (maxZTiles < depth || maxYTiles < height || maxXTiles < width) {
+		throw new Error("Volume too large to fit in a texture");
+	}
+
+	zTilesY = Math.ceil(depth / zTilesX);
+	yTilesY = Math.ceil(height / yTilesX);
+	xTilesY = Math.ceil(width / xTilesX);
+
+	var valuesImgZ = new Uint8Array(zTilesX * width * zTilesY * height * 4);
+	var valuesImgY = new Uint8Array(yTilesX * width * yTilesY * depth * 4);
+	var valuesImgX = new Uint8Array(xTilesX * depth * xTilesY * height * 4);
+
 	for (var i=0; i<values.length; i++) {
 		var v = (values[i] - isoMin) * isoRangeRecip;
 		v = 255 * (v >= 0 ? (v <= 1 ? v : 0) : 0);
@@ -80,45 +103,77 @@ module.exports = function createVolume(params, bounds) {
 		var g = v;
 		var b = v;
 		var a = v;
-		valuesImgZ[i*4] = r;
-		valuesImgZ[i*4+1] = g;
-		valuesImgZ[i*4+2] = b;
-		valuesImgZ[i*4+3] = a;
 
 		var z = Math.floor(i / (width*height));
 		var y = Math.floor((i - z*width*height) / width);
 		var x = i - z*width*height - y*width;
 
-		var xOff = x * depth*height + y * depth + z;
-		valuesImgX[xOff * 4] = r;
-		valuesImgX[xOff * 4 + 1] = g;
-		valuesImgX[xOff * 4 + 2] = b;
-		valuesImgX[xOff * 4 + 3] = a;
+		var zTY = Math.floor(z / zTilesX);
+		var zTX = z - (zTilesX * zTY);
+		var zI = y * width + x;
+		var zIX = zTX * width;
+		var zIY = zTY * height;
+		var zY = Math.floor(zI / width);
+		var zX = zI - (zY * width);
+		zY += zIY;
+		zX += zIX;
+		var zOff = zY * (zTilesX * width) + zX;
 
-		var yOff = y * width*depth + z * width + x;
+		valuesImgZ[zOff * 4 ] = r;
+		valuesImgZ[zOff * 4 + 1] = g;
+		valuesImgZ[zOff * 4 + 2] = b;
+		valuesImgZ[zOff * 4 + 3] = a;
+
+		var yTY = Math.floor(y / yTilesX);
+		var yTX = y - (yTilesX * yTY);
+		var yI = z * width + x;
+		var yIX = yTX * width;
+		var yIY = yTY * depth;
+		var yY = Math.floor(yI / width);
+		var yX = yI - (yY * width);
+		yY += yIY;
+		yX += yIX;
+		var yOff = yY * (yTilesX * width) + yX;
+
 		valuesImgY[yOff * 4] = r;
 		valuesImgY[yOff * 4 + 1] = g;
 		valuesImgY[yOff * 4 + 2] = b;
 		valuesImgY[yOff * 4 + 3] = a;
+
+		var xTY = Math.floor(x / xTilesX);
+		var xTX = x - (xTilesX * xTY);
+		var xI = y * depth + z;
+		var xIX = xTX * depth;
+		var xIY = xTY * height;
+		var xY = Math.floor(xI / depth);
+		var xX = xI - (xY * depth);
+		xY += xIY;
+		xX += xIX;
+		var xOff = xY * (xTilesX * depth) + xX;
+
+		valuesImgX[xOff * 4] = r;
+		valuesImgX[xOff * 4 + 1] = g;
+		valuesImgX[xOff * 4 + 2] = b;
+		valuesImgX[xOff * 4 + 3] = a;
 	}
 
-	var texZ = createTexture(gl, [width, height*depth]);
+	var texZ = createTexture(gl, [zTilesX * width, zTilesY * height]);
 	texZ.minFilter = gl.LINEAR;
 	texZ.magFilter = gl.LINEAR;
 	texZ.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height*depth, 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texZ.shape[0], texZ.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
 
-	var texX = createTexture(gl, [depth, width*height]);
-	texX.minFilter = gl.LINEAR;
-	texX.magFilter = gl.LINEAR;
-	texX.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, depth, width*height, 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgX);
-
-	var texY = createTexture(gl, [width, height*depth]);
+	var texY = createTexture(gl, [yTilesX * width, yTilesY * depth]);
 	texY.minFilter = gl.LINEAR;
 	texY.magFilter = gl.LINEAR;
 	texY.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height*depth, 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgY);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texY.shape[0], texY.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgY);
+
+	var texX = createTexture(gl, [xTilesX * depth, xTilesY * height]);
+	texX.minFilter = gl.LINEAR;
+	texX.magFilter = gl.LINEAR;
+	texX.bind();
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texX.shape[0], texX.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgX);
 
 
 	var meshes = [];
@@ -151,10 +206,12 @@ module.exports = function createVolume(params, bounds) {
 	var modelEZ = meshgrid[2][meshgrid[2].length-1];
 
 	for (var i = 0; i < depth; i++) {
-		var u0 = 0;
-		var u1 = 1;
-		var v0 = (i) / depth;
-		var v1 = (i + 1) / depth;
+		var zTY = Math.floor(i / zTilesX);
+		var zTX = i - (zTilesX * zTY);
+		var u0 = zTX / zTilesX;
+		var u1 = (zTX + 1) / zTilesX;
+		var v0 = zTY / zTilesY;
+		var v1 = (zTY + 1) / zTilesY;
 
 		positions.push(
 			meshgrid[0][0], meshgrid[1][0], meshgrid[2][i],
@@ -204,10 +261,12 @@ module.exports = function createVolume(params, bounds) {
 	var triangleUVs = [];
 
 	for (var i = height-1; i >= 0; i--) {
-		var u0 = 0;
-		var u1 = 1;
-		var v0 = (i) / height;
-		var v1 = (i + 1) / height;
+		var yTY = Math.floor(i / yTilesX);
+		var yTX = i - (yTilesX * yTY);
+		var u0 = yTX / yTilesX;
+		var u1 = (yTX + 1) / yTilesX;
+		var v0 = yTY / yTilesY;
+		var v1 = (yTY + 1) / yTilesY;
 
 		positions.push(
 			modelSX, meshgrid[1][i], modelSZ,
@@ -257,10 +316,13 @@ module.exports = function createVolume(params, bounds) {
 	var triangleUVs = [];
 
 	for (var i = 0; i < width; i++) {
-		var u0 = 0;
-		var u1 = 1;
-		var v0 = (i) / width;
-		var v1 = (i + 1) / width;
+		var xTY = Math.floor(i / xTilesX);
+		var xTX = i - (xTilesX * xTY);
+		var u0 = xTX / xTilesX;
+		var u1 = (xTX + 1) / xTilesX;
+		var v0 = xTY / xTilesY;
+		var v1 = (xTY + 1) / xTilesY;
+
 
 		positions.push(
 			meshgrid[0][i], modelSY, modelSZ,
