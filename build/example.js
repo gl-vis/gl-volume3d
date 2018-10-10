@@ -2217,15 +2217,15 @@ getData('example/data/mri.csv', function(mricsv) {
 },{"../volume":241,"3d-view-controls":9,"bound-points":33,"canvas-fit":41,"gl-axes3d":70,"gl-mat4/perspective":97,"gl-select-static":108,"gl-spikes3d":118,"mouse-change":178}],7:[function(require,module,exports){
 
 
-var triVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position;\nattribute vec2 uv;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec2 f_uv;\n\nvoid main() {\n  vec4 m_position  = model * vec4(position, 1.0);\n  vec4 t_position  = view * m_position;\n  gl_Position      = projection * t_position;\n  f_data           = position;\n  f_eyeDirection   = eyePosition   - position;\n  f_lightDirection = lightPosition - position;\n  f_uv             = uv;\n}"
-var triFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nfloat beckmannDistribution_2_0(float x, float roughness) {\n  float NdotH = max(x, 0.0001);\n  float cos2Alpha = NdotH * NdotH;\n  float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;\n  float roughness2 = roughness * roughness;\n  float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;\n  return exp(tan2Alpha / roughness2) / denom;\n}\n\n\n\nfloat cookTorranceSpecular_1_1(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float roughness,\n  float fresnel) {\n\n  float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);\n  float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);\n\n  //Half angle vector\n  vec3 H = normalize(lightDirection + viewDirection);\n\n  //Geometric term\n  float NdotH = max(dot(surfaceNormal, H), 0.0);\n  float VdotH = max(dot(viewDirection, H), 0.000001);\n  float LdotH = max(dot(lightDirection, H), 0.000001);\n  float G1 = (2.0 * NdotH * VdotN) / VdotH;\n  float G2 = (2.0 * NdotH * LdotN) / LdotH;\n  float G = min(1.0, min(G1, G2));\n  \n  //Distribution term\n  float D = beckmannDistribution_2_0(NdotH, roughness);\n\n  //Fresnel term\n  float F = pow(1.0 - VdotN, fresnel);\n\n  //Multiply terms and done\n  return  G * F * D / max(3.14159265 * VdotN, 0.000001);\n}\n\n\n\nuniform vec3 clipBounds[2];\nuniform float intensityBounds[2];\nuniform float roughness\n            , fresnel\n            , kambient\n            , kdiffuse\n            , kspecular\n            , opacity;\nuniform sampler2D texture;\nuniform sampler2D colormap;\nuniform sampler2D alphamap;\nuniform bool useColormap;\nuniform bool useAlphamap;\n\nvarying vec3 f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec2 f_uv;\n\nvoid main() {\n  if(any(lessThan(f_data, clipBounds[0])) ||\n     any(greaterThan(f_data, clipBounds[1]))) {\n    discard;\n  }\n\n  vec4 tex = texture2D(texture, f_uv);\n\n  float intensity = clamp((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);\n\n  if (useColormap) {\n    tex.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;\n  }\n\n  if (useAlphamap) {\n    tex.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;\n  } else {\n    tex.a = intensity * opacity;\n  }\n\n  gl_FragColor = tex;\n\n  /*\n\n  vec3 N = normalize(f_normal);\n  vec3 L = normalize(f_lightDirection);\n  vec3 V = normalize(f_eyeDirection);\n\n  if(!gl_FrontFacing) {\n    N = -N;\n  }\n\n  float specular = cookTorrance(L, V, N, roughness, fresnel);\n  float diffuse  = min(kambient + kdiffuse * max(dot(N, L), 0.0), 1.0);\n\n  vec4 surfaceColor = texture2D(texture, f_uv);\n  vec4 litColor = surfaceColor.a * vec4(diffuse * surfaceColor.rgb + kspecular * vec3(1,1,1) * specular,  1.0);\n\n  gl_FragColor = litColor * opacity;\n\n  */\n}"
+var triVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position;\nattribute vec3 uvw;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec3 f_uvw;\n\nvoid main() {\n  vec4 m_position  = model * vec4(position, 1.0);\n  vec4 t_position  = view * m_position;\n  gl_Position      = projection * t_position;\n  f_data           = position;\n  f_eyeDirection   = eyePosition   - position;\n  f_lightDirection = lightPosition - position;\n  f_uvw            = uvw;\n}"
+var triFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nfloat beckmannDistribution_2_0(float x, float roughness) {\n  float NdotH = max(x, 0.0001);\n  float cos2Alpha = NdotH * NdotH;\n  float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;\n  float roughness2 = roughness * roughness;\n  float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;\n  return exp(tan2Alpha / roughness2) / denom;\n}\n\n\n\nfloat cookTorranceSpecular_1_1(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float roughness,\n  float fresnel) {\n\n  float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);\n  float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);\n\n  //Half angle vector\n  vec3 H = normalize(lightDirection + viewDirection);\n\n  //Geometric term\n  float NdotH = max(dot(surfaceNormal, H), 0.0);\n  float VdotH = max(dot(viewDirection, H), 0.000001);\n  float LdotH = max(dot(lightDirection, H), 0.000001);\n  float G1 = (2.0 * NdotH * VdotN) / VdotH;\n  float G2 = (2.0 * NdotH * LdotN) / LdotH;\n  float G = min(1.0, min(G1, G2));\n  \n  //Distribution term\n  float D = beckmannDistribution_2_0(NdotH, roughness);\n\n  //Fresnel term\n  float F = pow(1.0 - VdotN, fresnel);\n\n  //Multiply terms and done\n  return  G * F * D / max(3.14159265 * VdotN, 0.000001);\n}\n\n\n\nuniform vec3 clipBounds[2];\nuniform float intensityBounds[2];\nuniform float roughness\n            , fresnel\n            , kambient\n            , kdiffuse\n            , kspecular\n            , opacity;\nuniform sampler2D texture;\nuniform sampler2D colormap;\nuniform sampler2D alphamap;\nuniform bool useColormap;\nuniform bool useAlphamap;\n\n// Used to compute uvw -> uv\nuniform vec2 texDims;\nuniform vec2 texTiles;\nuniform vec2 tileDims;\n\n\nvarying vec3 f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec3 f_uvw;\n\nvoid main() {\n  //if(any(lessThan(f_data, clipBounds[0])) ||\n  //   any(greaterThan(f_data, clipBounds[1]))) {\n  //  discard;\n  //}\n\n  vec4 tex = texture2D(texture, f_uvw.xy);\n\n  float intensity = clamp((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);\n\n  if (useColormap) {\n    tex.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;\n  }\n\n  if (useAlphamap) {\n    tex.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;\n  } else {\n    tex.a = intensity * opacity;\n  }\n\n  tex.rgb *= tex.a;\n\n  gl_FragColor = vec4(f_uvw, 1.0); //vec4(1.0, 0.0, 1.0, 1.0); //tex;\n\n  /*\n\n  vec3 N = normalize(f_normal);\n  vec3 L = normalize(f_lightDirection);\n  vec3 V = normalize(f_eyeDirection);\n\n  if(!gl_FrontFacing) {\n    N = -N;\n  }\n\n  float specular = cookTorrance(L, V, N, roughness, fresnel);\n  float diffuse  = min(kambient + kdiffuse * max(dot(N, L), 0.0), 1.0);\n\n  vec4 surfaceColor = texture2D(texture, f_uv);\n  vec4 litColor = surfaceColor.a * vec4(diffuse * surfaceColor.rgb + kspecular * vec3(1,1,1) * specular,  1.0);\n\n  gl_FragColor = litColor * opacity;\n\n  */\n}"
 
 exports.meshShader = {
   vertex:   triVertSrc,
   fragment: triFragSrc,
   attributes: [
     {name: 'position', type: 'vec3'},
-    {name: 'uv', type: 'vec2'}
+    {name: 'uvw', type: 'vec3'}
   ]
 }
 
@@ -2256,13 +2256,13 @@ var identityMatrix = [
   0,0,1,0,
   0,0,0,1]
 
-function SimplicialMesh(gl
+function SimpleMesh(gl
   , texture
   , colormap
   , alphamap
   , triShader
   , trianglePositions
-  , triangleUVs
+  , triangleUVWs
   , triangleVAO
 ) {
 
@@ -2280,7 +2280,7 @@ function SimplicialMesh(gl
   this.triShader         = triShader
 
   this.trianglePositions = trianglePositions
-  this.triangleUVs       = triangleUVs
+  this.triangleUVWs      = triangleUVWs
   this.triangleVAO       = triangleVAO
   this.triangleCount     = 0
 
@@ -2301,6 +2301,7 @@ function SimplicialMesh(gl
   this.fresnel       = 1.5
 
   this.opacity       = 1.0
+  this.transparent   = true
 
   this._model       = identityMatrix
   this._view        = identityMatrix
@@ -2308,14 +2309,14 @@ function SimplicialMesh(gl
   this._resolution  = [1,1]
 }
 
-var proto = SimplicialMesh.prototype
+var proto = SimpleMesh.prototype
 
 proto.isOpaque = function() {
-  return this.opacity >= 1
+  return !this.transparent
 }
 
 proto.isTransparent = function() {
-  return this.opacity < 1
+  return this.transparent
 }
 
 function genColormap(param) {
@@ -2377,6 +2378,9 @@ proto.update = function(params) {
   if('fresnel' in params) {
     this.fresnel = params.fresnel
   }
+  if('transparent' in params) {
+    this.transparent = params.transparent
+  }
 
   if(params.texture) {
     this.texture.dispose()
@@ -2414,12 +2418,12 @@ proto.update = function(params) {
   //Pack cells into buffers
   var vertexCount = positions.length / 3;
   var triangleCount = vertexCount / 3;
-  var uvs = params.triangleUVs;
+  var uvws = params.triangleUVWs;
 
   this.triangleCount  = triangleCount;
 
   this.trianglePositions.update(positions)
-  this.triangleUVs.update(uvs)
+  this.triangleUVWs.update(uvws)
 }
 
 proto.drawTransparent =
@@ -2497,16 +2501,22 @@ function(params) {
     shader.bind()
     shader.uniforms = uniforms
 
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.depthMask(false);
+    // gl.enable(gl.BLEND);
+    // gl.blendEquation(gl.FUNC_ADD);
+    // gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    // gl.depthMask(false);
 
-    gl.enable(gl.CULL_FACE);
-    gl.cullFace(gl.BACK);
+    // gl.enable(gl.CULL_FACE);
+    // gl.cullFace(gl.BACK);
+    gl.disable(gl.CULL_FACE); 
 
     this.triangleVAO.bind()
     gl.drawArrays(gl.TRIANGLES, 0, this.triangleCount*3)
     this.triangleVAO.unbind()
+
+    // gl.disable(gl.CULL_FACE);
+    // gl.disable(gl.BLEND);
+    // gl.depthMask(true);
   }
 }
 
@@ -2514,22 +2524,23 @@ function(params) {
 proto.dispose = function() {
   this.texture.dispose()
   this.colormap.dispose()
+  this.alphamap.dispose()
 
   this.triShader.dispose()
 
   this.triangleVAO.dispose()
   this.trianglePositions.dispose()
-  this.triangleUVs.dispose()
+  this.triangleUVWs.dispose()
 }
 
 function createMeshShader(gl) {
   var shader = createShader(gl, meshShader.vertex, meshShader.fragment)
   shader.attributes.position.location = 0
-  shader.attributes.uv.location       = 1
+  shader.attributes.uvw.location      = 1
   return shader
 }
 
-function createSimplicialMesh(gl, params) {
+function createSimpleMesh(gl, params) {
   if (arguments.length === 1) {
     params = gl;
     gl = params.gl;
@@ -2556,25 +2567,25 @@ function createSimplicialMesh(gl, params) {
   alphamapTexture.magFilter = gl.LINEAR
 
   var trianglePositions = createBuffer(gl)
-  var triangleUVs       = createBuffer(gl)
+  var triangleUVWs       = createBuffer(gl)
   var triangleVAO       = createVAO(gl, [
     { buffer: trianglePositions,
       type: gl.FLOAT,
       size: 3
     },
-    { buffer: triangleUVs,
+    { buffer: triangleUVWs,
       type: gl.FLOAT,
-      size: 2
+      size: 3
     }
   ])
 
-  var mesh = new SimplicialMesh(gl
+  var mesh = new SimpleMesh(gl
     , meshTexture
     , colormapTexture
     , alphamapTexture
     , triShader
     , trianglePositions
-    , triangleUVs
+    , triangleUVWs
     , triangleVAO)
 
   mesh.update(params)
@@ -2582,7 +2593,7 @@ function createSimplicialMesh(gl, params) {
   return mesh
 }
 
-module.exports = createSimplicialMesh
+module.exports = createSimpleMesh
 
 },{"./shaders":7,"colormap":51,"gl-buffer":78,"gl-mat4/invert":93,"gl-mat4/multiply":95,"gl-shader":109,"gl-texture2d":119,"gl-vao":123,"ndarray":186,"normals":188,"simplicial-complex-contour":214,"typedarray-pool":231}],9:[function(require,module,exports){
 'use strict'
@@ -28918,135 +28929,11 @@ function findZeroCrossings(array, level) {
 },{"./lib/zc-core":239}],241:[function(require,module,exports){
 "use strict";
 
-const vec4 = require('gl-vec4');
-const mat4 = require('gl-mat4');
-const createTexture = require('gl-texture2d');
-const createTriMesh = require('./lib/simplemesh.js');
+var vec4 = require('gl-vec4');
+var mat4 = require('gl-mat4');
+var createTexture = require('gl-texture2d');
+var createTriMesh = require('./lib/simplemesh.js');
 
-
-const findLastSmallerIndex = function(points, v) {
-  for (var i=0; i<points.length; i++) {
-  	var p = points[i];
-  	if (p === v) return i;
-    if (p > v) return i-1;
-  }
-  return i;
-};
-
-const clamp = function(v, min, max) {
-	return v < min ? min : (v > max ? max : v);
-};
-
-const lerp = function(u, v, t) {
-	return u * (1-t) + v * t;
-};
-
-const sampleMeshgridScalar = function(x, y, z, array, meshgrid, clampOverflow) {
-	var w = meshgrid[0].length;
-	var h = meshgrid[1].length;
-	var d = meshgrid[2].length;
-
-	// Find the index of the nearest smaller value in the meshgrid for each coordinate of (x,y,z).
-	// The nearest smaller value index for x is the index x0 such that
-	// meshgrid[0][x0] < x and for all x1 > x0, meshgrid[0][x1] >= x.
-	var x0 = findLastSmallerIndex(meshgrid[0], x);
-	var y0 = findLastSmallerIndex(meshgrid[1], y);
-	var z0 = findLastSmallerIndex(meshgrid[2], z);
-
-	// Get the nearest larger meshgrid value indices.
-	// From the above "nearest smaller value", we know that
-	//   meshgrid[0][x0] < x
-	//   meshgrid[0][x0+1] >= x
-	var x1 = x0 + 1;
-	var y1 = y0 + 1;
-	var z1 = z0 + 1;
-
-	if (meshgrid[0][x0] === x) x1 = x0;
-	if (meshgrid[1][y0] === y) y1 = y0;
-	if (meshgrid[2][z0] === z) z1 = z0;
-
-	if (clampOverflow) {
-		x0 = clamp(x0, 0, w-1);
-		x1 = clamp(x1, 0, w-1);
-		y0 = clamp(y0, 0, h-1);
-		y1 = clamp(y1, 0, h-1);
-		z0 = clamp(z0, 0, d-1);
-		z1 = clamp(z1, 0, d-1);
-	}
-
-	// Reject points outside the meshgrid, return a zero.
-	if (x0 < 0 || y0 < 0 || z0 < 0 || x1 >= w || y1 >= h || z1 >= d) {
-		return 0;
-	}
-
-	// Normalize point coordinates to 0..1 scaling factor between x0 and x1.
-	var xf = (x - meshgrid[0][x0]) / (meshgrid[0][x1] - meshgrid[0][x0]);
-	var yf = (y - meshgrid[1][y0]) / (meshgrid[1][y1] - meshgrid[1][y0]);
-	var zf = (z - meshgrid[2][z0]) / (meshgrid[2][z1] - meshgrid[2][z0]);
-
-	if (xf < 0 || xf > 1 || isNaN(xf)) xf = 0;
-	if (yf < 0 || yf > 1 || isNaN(yf)) yf = 0;
-	if (zf < 0 || zf > 1 || isNaN(zf)) zf = 0;
-
-	var z0off = z0*w*h;
-	var z1off = z1*w*h;
-
-	var y0off = y0*w;
-	var y1off = y1*w;
-
-	var x0off = x0;
-	var x1off = x1;
-
-	// Sample data array around the (x,y,z) point.
-	//  vZYX = array[zZoff + yYoff + xXoff]
-	var v000 = array[y0off + z0off + x0off];
-	var v001 = array[y0off + z0off + x1off];
-	var v010 = array[y1off + z0off + x0off];
-	var v011 = array[y1off + z0off + x1off];
-	var v100 = array[y0off + z1off + x0off];
-	var v101 = array[y0off + z1off + x1off];
-	var v110 = array[y1off + z1off + x0off];
-	var v111 = array[y1off + z1off + x1off];
-
-	var result, tmp, tmp2;
-
-	// Average samples according to distance to point.
-	result = lerp(v000, v001, xf);
-	tmp = lerp(v010, v011, xf);
-	result = lerp(result, tmp, yf);
-	tmp = lerp(v100, v101, xf);
-	tmp2 = lerp(v110, v111, xf);
-	tmp = lerp(tmp, tmp2, yf);
-	result = lerp(result, tmp, zf);
-
-	return result;
-};
-
-/*
-	Converts values and meshgrid dataset into an uniformly sampled
-	grid with the given dimensions.
-*/
-const uniformResample = function(values, meshgrid, dimensions) {
-	var [sx, sy, sz] = [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]];
-	var [ex, ey, ez] = [meshgrid[0][meshgrid[0].length-1], meshgrid[1][meshgrid[1].length-1], meshgrid[2][meshgrid[2].length-1]];
-
-	var newValues = [];
-	
-	var [w, h, d] = dimensions;
-	var w1 = w-1, h1 = h-1, d1 = d-1;
-
-	for (var z=0; z<d; z++) {
-		var rz = sz + (ez-sz) * (z / d1); 
-		for (var y=0; y<h; y++) {
-			var ry = sy + (ey-sy) * (y / h1); 
-			for (var x=0; x<w; x++) {
-				var rx = sx + (ex-sx) * (x / w1); 
-				newValues.push(sampleMeshgridScalar(rx, ry, rz, values, meshgrid, true));
-			}
-		}
-	}
-	return newValues;
-};
 
 /*
 	How this should work:
@@ -29065,306 +28952,230 @@ module.exports = function createVolume(params, bounds) {
 		params = arguments[1];
 		bounds = arguments[2];
 	}
-	const { dimensions, isoBounds, intensityBounds, clipBounds, colormap, alphamap, opacity, meshgrid } = params;
-	const rawValues = params.values;
-	const [width, height, depth] = dimensions;
-	var values;
-	if (meshgrid) {
-		values = uniformResample(rawValues, meshgrid, dimensions);
+	var dimensions = params.dimensions, 
+		rawIsoBounds = params.intensityBounds, 
+		rawIntensityBounds = params.isoBounds, 
+		clipBounds = params.clipBounds, 
+		colormap = params.colormap, 
+		alphamap = params.alphamap, 
+		opacity = params.opacity,
+		meshgrid = params.meshgrid;
+
+	var values = params.values;
+	if (!dimensions) {
+		dimensions = [
+			meshgrid[0].length,
+			meshgrid[1].length,
+			meshgrid[2].length
+		];
+	}
+	var width = dimensions[0], height = dimensions[1], depth = dimensions[2];
+
+	var isoBounds = [Infinity, -Infinity];
+
+	if (rawIsoBounds) {
+		isoBounds = rawIsoBounds;
 	} else {
-		values = rawValues;
+		for (var i=0; i<values.length; i++) {
+			var v = values[i];
+			if (v < isoBounds[0]) {
+				isoBounds[0] = v;
+			}
+			if (v > isoBounds[1]) {
+				isoBounds[1] = v;
+			}
+		}
 	}
 
-	var valuesImgZ = new Uint8Array(values.length * 4);
-	var valuesImgX = new Uint8Array(values.length * 4);
-	var valuesImgY = new Uint8Array(values.length * 4);
+	var isoMin = isoBounds[0];
+	var isoRangeRecip = 1 / (isoBounds[1] - isoBounds[0]);
+
+	var intensityBounds = [0, 1];
+	if (rawIntensityBounds) {
+		intensityBounds = [
+			(rawIntensityBounds[0] - isoMin) * isoRangeRecip,
+			(rawIntensityBounds[1] - isoMin) * isoRangeRecip
+		];
+	}
+
+	var maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
+	var tilesX = Math.floor(maxTextureSize / width);
+	var tilesY = Math.floor(maxTextureSize / height);
+	var maxTiles = tilesX * tilesY;
+
+	if (maxTiles < depth) {
+		throw new Error("Volume too large to fit in a texture");
+	}
+
+	tilesY = Math.ceil(depth / tilesX);
+
+	var valuesImgZ = new Uint8Array(tilesX * width * tilesY * height * 4);
+
 	for (var i=0; i<values.length; i++) {
-		var v = values[i]; // (values[i] - isoBounds[0]) / (isoBounds[1] - isoBounds[0]);
-		// v = 255 * (v > 0 ? (v < 1 ? v : 1) : 0);
+		var v = (values[i] - isoMin) * isoRangeRecip;
+		v = 255 * (v >= 0 ? (v <= 1 ? v : 0) : 0);
+
 		var r = v;
 		var g = v;
 		var b = v;
 		var a = v;
-		valuesImgZ[i*4] = r;
-		valuesImgZ[i*4+1] = g;
-		valuesImgZ[i*4+2] = b;
-		valuesImgZ[i*4+3] = a;
 
-		let z = Math.floor(i / (width*height));
-		let y = Math.floor((i - z*width*height) / width);
-		let x = i - z*width*height - y*width;
+		var z = Math.floor(i / (width*height));
+		var y = Math.floor((i - z*width*height) / width);
+		var x = i - z*width*height - y*width;
 
-		let xOff = x * depth*height + y * depth + z;
-		valuesImgX[xOff * 4] = r;
-		valuesImgX[xOff * 4 + 1] = g;
-		valuesImgX[xOff * 4 + 2] = b;
-		valuesImgX[xOff * 4 + 3] = a;
+		var tileY = Math.floor(z / tilesX);
+		var tileX = z - (tilesX * tileY);
 
-		let yOff = y * width*depth + z * depth + x;
-		valuesImgY[yOff * 4] = r;
-		valuesImgY[yOff * 4 + 1] = g;
-		valuesImgY[yOff * 4 + 2] = b;
-		valuesImgY[yOff * 4 + 3] = a;
+		var tileOff = (tileY * tilesX + tileX) * width * height;
+
+		var pxOff = tileOff + y * width * tilesX + x;
+
+		valuesImgZ[pxOff * 4 ] = r;
+		valuesImgZ[pxOff * 4 + 1] = g;
+		valuesImgZ[pxOff * 4 + 2] = b;
+		valuesImgZ[pxOff * 4 + 3] = a;
 	}
 
-	var texZ = createTexture(gl, [width, height*depth]);
-	texZ.minFilter = gl.LINEAR;
-	texZ.magFilter = gl.LINEAR;
-	texZ.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height*depth, 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
-
-	var texX = createTexture(gl, [depth, width*height]);
-	texX.minFilter = gl.LINEAR;
-	texX.magFilter = gl.LINEAR;
-	texX.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, depth, width*height, 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgX);
-
-	var texY = createTexture(gl, [width, height*depth]);
-	texY.minFilter = gl.LINEAR;
-	texY.magFilter = gl.LINEAR;
-	texY.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height*depth, 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgY);
-
-
-	var meshes = [];
+	var tex = createTexture(gl, [tilesX * width, tilesY * height]);
+	tex.minFilter = gl.LINEAR;
+	tex.magFilter = gl.LINEAR;
+	tex.bind();
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.shape[0], tex.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
 
 
 	// Create Z stack mesh [z grows]
 
 	var positions = [];
-	var triangleUVs = [];
+	var triangleUVWs = [];
 
-	var modelSX = 0;
-	var modelSY = 0;
-	var modelSZ = 0;
-
-	var modelEX = width;
-	var modelEY = height;
-	var modelEZ = depth;
-
-	if (meshgrid) {
-		modelSX = meshgrid[0][0];
-		modelSY = meshgrid[1][0];
-		modelSZ = meshgrid[2][0];
-
-		modelEX = meshgrid[0][meshgrid[0].length-1];
-		modelEY = meshgrid[1][meshgrid[1].length-1];
-		modelEZ = meshgrid[2][meshgrid[2].length-1];
+	if (!meshgrid) {
+		meshgrid = [[], [], []];
+		for (var i = 0; i < width; i++) {
+			meshgrid[0][i] = i;
+		}
+		for (var i = 0; i < height; i++) {
+			meshgrid[1][i] = i;
+		}
+		for (var i = 0; i < depth; i++) {
+			meshgrid[2][i] = i;
+		}
 	}
 
-	var rz = modelSZ + (modelEZ - modelSZ) * (i / (depth-1));
+	var modelSX = meshgrid[0][0];
+	var modelSY = meshgrid[1][0];
+	var modelSZ = meshgrid[2][0];
 
-	for (var i = 0; i < depth; i++) {
-		var u0 = 0;
-		var u1 = 1;
-		var v0 = i / depth;
-		var v1 = (i + 1-3/depth) / depth;
+	var modelEX = meshgrid[0][meshgrid[0].length-1];
+	var modelEY = meshgrid[1][meshgrid[1].length-1];
+	var modelEZ = meshgrid[2][meshgrid[2].length-1];
 
-		positions.push(
-			0,     0,      i,
-			width, 0,      i,
-			width, height, i,
-			0,     0,      i,
-			width, height, i,
-			0,     height, i
-		);
+	for (var i = 0; i < meshgrid[2].length; i += meshgrid[2].length-1) {
+		var z = i / (meshgrid[2].length-1);
+		for (var y = 1; y < meshgrid[1].length; y++) {
+			for (var x = 1; x < meshgrid[0].length; x++) {
+				positions.push(
+					meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+					meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
+					meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+					meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+					meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+					meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i]
+				);
 
-		triangleUVs.push(
-			u0, v0,
-			u1, v0,
-			u1, v1,
-			u0, v0,
-			u1, v1,
-			u0, v1
-		);
-	}
+				var u0 = (x-1) / (meshgrid[0].length-1);
+				var u1 = x / (meshgrid[0].length-1);
+				var v0 = (y-1) / (meshgrid[1].length-1);
+				var v1 = y / (meshgrid[1].length-1);
 
-	for (var i=0; i<positions.length; i+=3) {
-		positions[i] = (positions[i] / width) * (modelEX-modelSX) + modelSX;
-		positions[i + 1] = (positions[i+1] / height) * (modelEY-modelSY) + modelSY;
-		positions[i + 2] = (positions[i+2] / depth) * (modelEZ-modelSZ) + modelSZ;
-	}
-
-	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
-		positions.push(positions[i-2], positions[i-1], positions[i]);
-		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
-	}
-
-	meshes.push(
-		createTriMesh(gl, {
-			positions,
-			triangleUVs,
-
-			texture: texZ,
-			colormap,
-			alphamap,
-			opacity,
-
-			isoBounds,
-			intensityBounds,
-			clipBounds
-		})
-	)
-
-
-	// Create Y stack mesh [y grows]
-
-	var positions = [];
-	var triangleUVs = [];
-
-	for (var i = height-1; i >= 0; i--) {
-		var u0 = 0;
-		var u1 = 1;
-		var v0 = i / height;
-		var v1 = (i + 1) / height;
-
-		positions.push(
-			0,     i, 0,
-			width, i, 0,
-			width, i, depth,
-			0,     i, 0,
-			width, i, depth,
-			0,     i, depth
-		);
-
-		triangleUVs.push(
-			u0, v0,
-			u1, v0,
-			u1, v1,
-			u0, v0,
-			u1, v1,
-			u0, v1
-		);
-	}
-
-	for (var i=0; i<positions.length; i+=3) {
-		positions[i] = (positions[i] / width) * (modelEX-modelSX) + modelSX;
-		positions[i + 1] = (positions[i+1] / height) * (modelEY-modelSY) + modelSY;
-		positions[i + 2] = (positions[i+2] / depth) * (modelEZ-modelSZ) + modelSZ;
-	}
-
-	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
-		positions.push(positions[i-2], positions[i-1], positions[i]);
-		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
-	}
-
-	meshes.push(
-		createTriMesh(gl, {
-			positions,
-			triangleUVs,
-
-			texture: texY,
-			colormap,
-			alphamap,
-			opacity,
-
-			isoBounds,
-			intensityBounds,
-			clipBounds
-		})
-	)
-
-
-	// Create X stack mesh [x grows]
-
-	var positions = [];
-	var triangleUVs = [];
-
-	for (var i = 0; i < width; i++) {
-		var u0 = 0;
-		var u1 = 1;
-		var v0 = i / width;
-		var v1 = (i + 1-3/width) / width;
-
-		positions.push(
-			i, 0,      0,
-			i, height, 0,
-			i, height, depth,
-			i, 0,      0,
-			i, height, depth,
-			i, 0,      depth
-		);
-
-		triangleUVs.push(
-			u0, v0,
-			u0, v1,
-			u1, v1,
-			u0, v0,
-			u1, v1,
-			u1, v0
-		);
-	}
-
-	for (var i=0; i<positions.length; i+=3) {
-		positions[i] = (positions[i] / width) * (modelEX-modelSX) + modelSX;
-		positions[i + 1] = (positions[i+1] / height) * (modelEY-modelSY) + modelSY;
-		positions[i + 2] = (positions[i+2] / depth) * (modelEZ-modelSZ) + modelSZ;
-	}
-
-	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
-		positions.push(positions[i-2], positions[i-1], positions[i]);
-		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
-	}
-
-	meshes.push(
-		createTriMesh(gl, {
-			positions,
-			triangleUVs,
-
-			texture: texX,
-			colormap,
-			alphamap,
-			opacity,
-
-			isoBounds,
-			intensityBounds,
-			clipBounds
-		})
-	)
-
-	meshes = [meshes[2], meshes[1], meshes[0]];
-
-	v = vec4.create();
-	const inv = mat4.create();
-
-	return {
-		draw: function(cameraParams) {
-			vec4.set(v, 0, 0, 1, 0);
-			mat4.invert(inv, cameraParams.view);
-			vec4.transformMat4(v, v, inv);
-			v[0] = Math.abs(v[0]);
-			v[1] = Math.abs(v[1]);
-			v[2] = Math.abs(v[2]);
-			if (v[2] < v[1]) {
-				if (v[2] < v[0]) {
-					meshes[2].draw(cameraParams);
-					if (v[0] < v[1]) {
-						meshes[0].draw(cameraParams);
-						meshes[1].draw(cameraParams);
-					} else {
-						meshes[1].draw(cameraParams);
-						meshes[0].draw(cameraParams);
-					}
-				} else {
-					meshes[0].draw(cameraParams);
-					meshes[2].draw(cameraParams);
-					meshes[1].draw(cameraParams);
-				}
-			} else if (v[2] < v[0]) {
-				meshes[1].draw(cameraParams);
-				meshes[2].draw(cameraParams);
-				meshes[0].draw(cameraParams);
-			} else if (v[1] < v[0]) {
-				meshes[1].draw(cameraParams);
-				meshes[0].draw(cameraParams);
-				meshes[2].draw(cameraParams);
-			} else {
-				meshes[0].draw(cameraParams);
-				meshes[1].draw(cameraParams);
-				meshes[2].draw(cameraParams);
+				triangleUVWs.push(
+					u0, v0, z,
+					u1, v0, z,
+					u1, v1, z,
+					u0, v0, z,
+					u1, v1, z,
+					u0, v1, z
+				);
 			}
 		}
-	};
+	}
+
+	for (var i = 0; i < meshgrid[1].length; i += meshgrid[1].length-1) {
+		var y = i / (meshgrid[1].length-1);
+		for (var z = 1; z < meshgrid[2].length; z++) {
+			for (var x = 1; x < meshgrid[0].length; x++) {
+				positions.push(
+					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
+					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ]
+				);
+
+				var u0 = (x-1) / (meshgrid[0].length-1);
+				var u1 = x / (meshgrid[0].length-1);
+				var w0 = (z-1) / (meshgrid[2].length-1);
+				var w1 = z / (meshgrid[2].length-1);
+
+				triangleUVWs.push(
+					u0, y, w0,
+					u1, y, w0,
+					u1, y, w1,
+					u0, y, w0,
+					u1, y, w1,
+					u0, y, w1
+				);
+			}
+		}
+	}
+
+	for (var i = 0; i < meshgrid[0].length; i += meshgrid[0].length-1) {
+		var x = i / (meshgrid[0].length-1);
+		for (var z = 1; z < meshgrid[2].length; z++) {
+			for (var y = 1; y < meshgrid[1].length; y++) {
+				positions.push(
+					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
+					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ]
+				);
+
+				var v0 = (y-1) / (meshgrid[1].length-1);
+				var v1 = y / (meshgrid[1].length-1);
+				var w0 = (z-1) / (meshgrid[2].length-1);
+				var w1 = z / (meshgrid[2].length-1);
+
+				triangleUVWs.push(
+					x, v0, w0,
+					x, v1, w0,
+					x, v1, w1,
+					x, v0, w0,
+					x, v1, w1,
+					x, v0, w1
+				);
+			}
+		}
+	}
+
+
+	return createTriMesh(gl, {
+		positions: positions,
+		triangleUVWs: triangleUVWs,
+
+		texture: tex,
+		colormap: colormap,
+		alphamap: alphamap,
+		opacity: opacity,
+		transparent: true,
+
+		isoBounds: isoBounds,
+		intensityBounds: intensityBounds,
+		clipBounds: clipBounds
+	});
 };
 
 

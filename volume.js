@@ -71,29 +71,17 @@ module.exports = function createVolume(params, bounds) {
 
 	var maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
-	var zTilesX = Math.floor(maxTextureSize / width);
-	var zTilesY = Math.floor(maxTextureSize / height);
-	var maxZTiles = zTilesX * zTilesY;
+	var tilesX = Math.floor(maxTextureSize / width);
+	var tilesY = Math.floor(maxTextureSize / height);
+	var maxTiles = tilesX * tilesY;
 
-	var yTilesX = Math.floor(maxTextureSize / width);
-	var yTilesY = Math.floor(maxTextureSize / depth);
-	var maxYTiles = yTilesX * yTilesY;
-
-	var xTilesX = Math.floor(maxTextureSize / depth);
-	var xTilesY = Math.floor(maxTextureSize / height);
-	var maxXTiles = xTilesX * xTilesY;
-
-	if (maxZTiles < depth || maxYTiles < height || maxXTiles < width) {
+	if (maxTiles < depth) {
 		throw new Error("Volume too large to fit in a texture");
 	}
 
-	zTilesY = Math.ceil(depth / zTilesX);
-	yTilesY = Math.ceil(height / yTilesX);
-	xTilesY = Math.ceil(width / xTilesX);
+	tilesY = Math.ceil(depth / tilesX);
 
-	var valuesImgZ = new Uint8Array(zTilesX * width * zTilesY * height * 4);
-	var valuesImgY = new Uint8Array(yTilesX * width * yTilesY * depth * 4);
-	var valuesImgX = new Uint8Array(xTilesX * depth * xTilesY * height * 4);
+	var valuesImgZ = new Uint8Array(tilesX * width * tilesY * height * 4);
 
 	for (var i=0; i<values.length; i++) {
 		var v = (values[i] - isoMin) * isoRangeRecip;
@@ -108,81 +96,30 @@ module.exports = function createVolume(params, bounds) {
 		var y = Math.floor((i - z*width*height) / width);
 		var x = i - z*width*height - y*width;
 
-		var zTY = Math.floor(z / zTilesX);
-		var zTX = z - (zTilesX * zTY);
-		var zI = y * width + x;
-		var zIX = zTX * width;
-		var zIY = zTY * height;
-		var zY = Math.floor(zI / width);
-		var zX = zI - (zY * width);
-		zY += zIY;
-		zX += zIX;
-		var zOff = zY * (zTilesX * width) + zX;
+		var tileY = Math.floor(z / tilesX);
+		var tileX = z - (tilesX * tileY);
 
-		valuesImgZ[zOff * 4 ] = r;
-		valuesImgZ[zOff * 4 + 1] = g;
-		valuesImgZ[zOff * 4 + 2] = b;
-		valuesImgZ[zOff * 4 + 3] = a;
+		var tileOff = (tileY * tilesX + tileX) * width * height;
 
-		var yTY = Math.floor(y / yTilesX);
-		var yTX = y - (yTilesX * yTY);
-		var yI = z * width + x;
-		var yIX = yTX * width;
-		var yIY = yTY * depth;
-		var yY = Math.floor(yI / width);
-		var yX = yI - (yY * width);
-		yY += yIY;
-		yX += yIX;
-		var yOff = yY * (yTilesX * width) + yX;
+		var pxOff = tileOff + y * width * tilesX + x;
 
-		valuesImgY[yOff * 4] = r;
-		valuesImgY[yOff * 4 + 1] = g;
-		valuesImgY[yOff * 4 + 2] = b;
-		valuesImgY[yOff * 4 + 3] = a;
-
-		var xTY = Math.floor(x / xTilesX);
-		var xTX = x - (xTilesX * xTY);
-		var xI = y * depth + z;
-		var xIX = xTX * depth;
-		var xIY = xTY * height;
-		var xY = Math.floor(xI / depth);
-		var xX = xI - (xY * depth);
-		xY += xIY;
-		xX += xIX;
-		var xOff = xY * (xTilesX * depth) + xX;
-
-		valuesImgX[xOff * 4] = r;
-		valuesImgX[xOff * 4 + 1] = g;
-		valuesImgX[xOff * 4 + 2] = b;
-		valuesImgX[xOff * 4 + 3] = a;
+		valuesImgZ[pxOff * 4 ] = r;
+		valuesImgZ[pxOff * 4 + 1] = g;
+		valuesImgZ[pxOff * 4 + 2] = b;
+		valuesImgZ[pxOff * 4 + 3] = a;
 	}
 
-	var texZ = createTexture(gl, [zTilesX * width, zTilesY * height]);
-	texZ.minFilter = gl.LINEAR;
-	texZ.magFilter = gl.LINEAR;
-	texZ.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texZ.shape[0], texZ.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
-
-	var texY = createTexture(gl, [yTilesX * width, yTilesY * depth]);
-	texY.minFilter = gl.LINEAR;
-	texY.magFilter = gl.LINEAR;
-	texY.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texY.shape[0], texY.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgY);
-
-	var texX = createTexture(gl, [xTilesX * depth, xTilesY * height]);
-	texX.minFilter = gl.LINEAR;
-	texX.magFilter = gl.LINEAR;
-	texX.bind();
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texX.shape[0], texX.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgX);
-
-
-	var meshes = [];
+	var tex = createTexture(gl, [tilesX * width, tilesY * height]);
+	tex.minFilter = gl.LINEAR;
+	tex.magFilter = gl.LINEAR;
+	tex.bind();
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.shape[0], tex.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
 
 
 	// Create Z stack mesh [z grows]
 
 	var positions = [];
-	var triangleUVs = [];
+	var triangleUVWs = [];
 
 	if (!meshgrid) {
 		meshgrid = [[], [], []];
@@ -205,236 +142,110 @@ module.exports = function createVolume(params, bounds) {
 	var modelEY = meshgrid[1][meshgrid[1].length-1];
 	var modelEZ = meshgrid[2][meshgrid[2].length-1];
 
-	for (var i = 0; i < depth; i++) {
-		var zTY = Math.floor(i / zTilesX);
-		var zTX = i - (zTilesX * zTY);
-		var u0 = zTX / zTilesX;
-		var u1 = (zTX + 1) / zTilesX;
-		var v0 = zTY / zTilesY;
-		var v1 = (zTY + 1) / zTilesY;
+	for (var i = 0; i < meshgrid[2].length; i += meshgrid[2].length-1) {
+		var z = i / (meshgrid[2].length-1);
+		for (var y = 1; y < meshgrid[1].length; y++) {
+			for (var x = 1; x < meshgrid[0].length; x++) {
+				positions.push(
+					meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+					meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
+					meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+					meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+					meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+					meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i]
+				);
 
-		positions.push(
-			meshgrid[0][0], meshgrid[1][0], meshgrid[2][i],
-			modelEX,        meshgrid[1][0], meshgrid[2][i],
-			modelEX,        modelEY,        meshgrid[2][i],
-			meshgrid[0][0], meshgrid[1][0], meshgrid[2][i],
-			modelEX,        modelEY,        meshgrid[2][i],
-			meshgrid[0][0], modelEY,        meshgrid[2][i]
-		);
+				var u0 = (x-1) / (meshgrid[0].length-1);
+				var u1 = x / (meshgrid[0].length-1);
+				var v0 = (y-1) / (meshgrid[1].length-1);
+				var v1 = y / (meshgrid[1].length-1);
 
-		triangleUVs.push(
-			u0, v0,
-			u1, v0,
-			u1, v1,
-			u0, v0,
-			u1, v1,
-			u0, v1
-		);
-	}
-
-	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
-		positions.push(positions[i-2], positions[i-1], positions[i]);
-		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
-	}
-
-	meshes.push(
-		createTriMesh(gl, {
-			positions: positions,
-			triangleUVs: triangleUVs,
-
-			texture: texZ,
-			colormap: colormap,
-			alphamap: alphamap,
-			opacity: opacity,
-			transparent: true,
-
-			isoBounds: isoBounds,
-			intensityBounds: intensityBounds,
-			clipBounds: clipBounds
-		})
-	)
-
-
-	// Create Y stack mesh [y grows]
-
-	var positions = [];
-	var triangleUVs = [];
-
-	for (var i = height-1; i >= 0; i--) {
-		var yTY = Math.floor(i / yTilesX);
-		var yTX = i - (yTilesX * yTY);
-		var u0 = yTX / yTilesX;
-		var u1 = (yTX + 1) / yTilesX;
-		var v0 = yTY / yTilesY;
-		var v1 = (yTY + 1) / yTilesY;
-
-		positions.push(
-			modelSX, meshgrid[1][i], modelSZ,
-			modelEX, meshgrid[1][i], modelSZ,
-			modelEX, meshgrid[1][i], modelEZ,
-			modelSX, meshgrid[1][i], modelSZ,
-			modelEX, meshgrid[1][i], modelEZ,
-			modelSX, meshgrid[1][i], modelEZ
-		);
-
-		triangleUVs.push(
-			u0, v0,
-			u1, v0,
-			u1, v1,
-			u0, v0,
-			u1, v1,
-			u0, v1
-		);
-	}
-
-	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
-		positions.push(positions[i-2], positions[i-1], positions[i]);
-		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
-	}
-
-	meshes.push(
-		createTriMesh(gl, {
-			positions: positions,
-			triangleUVs: triangleUVs,
-
-			texture: texY,
-			colormap: colormap,
-			alphamap: alphamap,
-			opacity: opacity,
-			transparent: true,
-
-			isoBounds: isoBounds,
-			intensityBounds: intensityBounds,
-			clipBounds: clipBounds			
-		})
-	)
-
-
-	// Create X stack mesh [x grows]
-
-	var positions = [];
-	var triangleUVs = [];
-
-	for (var i = 0; i < width; i++) {
-		var xTY = Math.floor(i / xTilesX);
-		var xTX = i - (xTilesX * xTY);
-		var u0 = xTX / xTilesX;
-		var u1 = (xTX + 1) / xTilesX;
-		var v0 = xTY / xTilesY;
-		var v1 = (xTY + 1) / xTilesY;
-
-
-		positions.push(
-			meshgrid[0][i], modelSY, modelSZ,
-			meshgrid[0][i], modelEY, modelSZ,
-			meshgrid[0][i], modelEY, modelEZ,
-			meshgrid[0][i], modelSY, modelSZ,
-			meshgrid[0][i], modelEY, modelEZ,
-			meshgrid[0][i], modelSY, modelEZ
-		);
-
-		triangleUVs.push(
-			u0, v0,
-			u0, v1,
-			u1, v1,
-			u0, v0,
-			u1, v1,
-			u1, v0
-		);
-	}
-
-	for (var i = positions.length-1, j = triangleUVs.length-1; i >= 0; i -= 3, j -= 2) {
-		positions.push(positions[i-2], positions[i-1], positions[i]);
-		triangleUVs.push(triangleUVs[j-1], triangleUVs[j])
-	}
-
-	meshes.push(
-		createTriMesh(gl, {
-			positions: positions,
-			triangleUVs: triangleUVs,
-
-			texture: texX,
-			colormap: colormap,
-			alphamap: alphamap,
-			opacity: opacity,
-			transparent: true,
-
-			isoBounds: isoBounds,
-			intensityBounds: intensityBounds,
-			clipBounds: clipBounds
-		})
-	)
-
-	meshes = [meshes[2], meshes[1], meshes[0]];
-
-	v = vec4.create();
-	var inv = mat4.create();
-
-	return {
-		meshes: meshes,
-		texX: texX,
-		texY: texY,
-		texZ: texZ,
-
-		bounds: [
-			[modelSX, modelSY, modelSZ],
-			[modelEX, modelEY, modelEZ]
-		],
-
-		draw: function(cameraParams) {
-			this.drawTransparent(cameraParams);
-		},
-
-		drawTransparent: function(cameraParams) {
-			vec4.set(v, 0, 0, 1, 0);
-			mat4.invert(inv, cameraParams.view);
-			vec4.transformMat4(v, v, inv);
-			v[0] = Math.abs(v[0]);
-			v[1] = Math.abs(v[1]);
-			v[2] = Math.abs(v[2]);
-			if (v[2] < v[1]) {
-				if (v[2] < v[0]) {
-					this.meshes[2].draw(cameraParams);
-					if (v[0] < v[1]) {
-						this.meshes[0].draw(cameraParams);
-						this.meshes[1].draw(cameraParams);
-					} else {
-						this.meshes[1].draw(cameraParams);
-						this.meshes[0].draw(cameraParams);
-					}
-				} else {
-					this.meshes[0].draw(cameraParams);
-					this.meshes[2].draw(cameraParams);
-					this.meshes[1].draw(cameraParams);
-				}
-			} else if (v[2] < v[0]) {
-				this.meshes[1].draw(cameraParams);
-				this.meshes[2].draw(cameraParams);
-				this.meshes[0].draw(cameraParams);
-			} else if (v[1] < v[0]) {
-				this.meshes[1].draw(cameraParams);
-				this.meshes[0].draw(cameraParams);
-				this.meshes[2].draw(cameraParams);
-			} else {
-				this.meshes[0].draw(cameraParams);
-				this.meshes[1].draw(cameraParams);
-				this.meshes[2].draw(cameraParams);
+				triangleUVWs.push(
+					u0, v0, z,
+					u1, v0, z,
+					u1, v1, z,
+					u0, v0, z,
+					u1, v1, z,
+					u0, v1, z
+				);
 			}
-		},
-
-		isOpaque: function() {
-			return true;
-		},
-
-		isTransparent: function() {
-			return false;
-		},
-
-		dispose: function() {
-			this.meshes[0].dispose();
-			this.meshes[1].dispose();
-			this.meshes[2].dispose();
 		}
-	};
+	}
+
+	for (var i = 0; i < meshgrid[1].length; i += meshgrid[1].length-1) {
+		var y = i / (meshgrid[1].length-1);
+		for (var z = 1; z < meshgrid[2].length; z++) {
+			for (var x = 1; x < meshgrid[0].length; x++) {
+				positions.push(
+					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
+					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ]
+				);
+
+				var u0 = (x-1) / (meshgrid[0].length-1);
+				var u1 = x / (meshgrid[0].length-1);
+				var w0 = (z-1) / (meshgrid[2].length-1);
+				var w1 = z / (meshgrid[2].length-1);
+
+				triangleUVWs.push(
+					u0, y, w0,
+					u1, y, w0,
+					u1, y, w1,
+					u0, y, w0,
+					u1, y, w1,
+					u0, y, w1
+				);
+			}
+		}
+	}
+
+	for (var i = 0; i < meshgrid[0].length; i += meshgrid[0].length-1) {
+		var x = i / (meshgrid[0].length-1);
+		for (var z = 1; z < meshgrid[2].length; z++) {
+			for (var y = 1; y < meshgrid[1].length; y++) {
+				positions.push(
+					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
+					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ]
+				);
+
+				var v0 = (y-1) / (meshgrid[1].length-1);
+				var v1 = y / (meshgrid[1].length-1);
+				var w0 = (z-1) / (meshgrid[2].length-1);
+				var w1 = z / (meshgrid[2].length-1);
+
+				triangleUVWs.push(
+					x, v0, w0,
+					x, v1, w0,
+					x, v1, w1,
+					x, v0, w0,
+					x, v1, w1,
+					x, v0, w1
+				);
+			}
+		}
+	}
+
+
+	return createTriMesh(gl, {
+		positions: positions,
+		triangleUVWs: triangleUVWs,
+
+		texture: tex,
+		colormap: colormap,
+		alphamap: alphamap,
+		opacity: opacity,
+		transparent: true,
+
+		isoBounds: isoBounds,
+		intensityBounds: intensityBounds,
+		clipBounds: clipBounds
+	});
 };
 

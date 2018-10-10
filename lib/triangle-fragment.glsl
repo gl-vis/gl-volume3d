@@ -16,10 +16,16 @@ uniform sampler2D alphamap;
 uniform bool useColormap;
 uniform bool useAlphamap;
 
+// Used to compute uvw -> uv
+uniform vec2 texDims;
+uniform vec2 texTiles;
+uniform vec2 tileDims;
+
+
 varying vec3 f_lightDirection
            , f_eyeDirection
            , f_data;
-varying vec2 f_uv;
+varying vec3 f_uvw;
 
 void main() {
   //if(any(lessThan(f_data, clipBounds[0])) ||
@@ -27,7 +33,7 @@ void main() {
   //  discard;
   //}
 
-  vec4 tex = texture2D(texture, f_uv);
+  vec4 tex = texture2D(texture, f_uvw.xy);
 
   float intensity = clamp((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
 
@@ -43,7 +49,7 @@ void main() {
 
   tex.rgb *= tex.a;
 
-  gl_FragColor = tex;
+  gl_FragColor = vec4(f_uvw, 1.0); //vec4(1.0, 0.0, 1.0, 1.0); //tex;
 
   /*
 
