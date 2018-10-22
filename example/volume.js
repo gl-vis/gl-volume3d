@@ -26,6 +26,7 @@ var canvas = document.createElement('canvas')
 document.body.appendChild(canvas)
 window.addEventListener('resize', require('canvas-fit')(canvas))
 var gl = canvas.getContext('webgl', {alpha: false})
+gl.getExtension('OES_standard_derivatives');
 gl.clearColor(1,1,1,1)
 
 getData('example/data/mri.csv', function(mricsv) {

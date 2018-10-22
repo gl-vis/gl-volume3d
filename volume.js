@@ -23,9 +23,8 @@ module.exports = function createVolume(params, bounds) {
 		params = arguments[1];
 		bounds = arguments[2];
 	}
-	var dimensions = params.dimensions, 
-		rawIsoBounds = params.intensityBounds, 
-		rawIntensityBounds = params.isoBounds, 
+	var rawIsoBounds = params.isoBounds, 
+		rawIntensityBounds = params.intensityBounds, 
 		clipBounds = params.clipBounds, 
 		colormap = params.colormap, 
 		alphamap = params.alphamap, 
@@ -33,14 +32,12 @@ module.exports = function createVolume(params, bounds) {
 		meshgrid = params.meshgrid;
 
 	var values = params.values;
-	if (!dimensions) {
-		dimensions = [
-			meshgrid[0].length,
-			meshgrid[1].length,
-			meshgrid[2].length
-		];
-	}
-	var width = dimensions[0], height = dimensions[1], depth = dimensions[2];
+	var dimensions = [
+		meshgrid[0].length,
+		meshgrid[1].length,
+		meshgrid[2].length
+	];
+	var width = meshgrid[0].length, height = meshgrid[1].length, depth = meshgrid[2].length;
 
 	var isoBounds = [Infinity, -Infinity];
 
@@ -69,7 +66,7 @@ module.exports = function createVolume(params, bounds) {
 		];
 	}
 
-	var maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+	var maxTextureSize = 2048; //gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
 	var tilesX = Math.floor(maxTextureSize / width);
 	var tilesY = Math.floor(maxTextureSize / height);
@@ -81,7 +78,10 @@ module.exports = function createVolume(params, bounds) {
 
 	tilesY = Math.ceil(depth / tilesX);
 
-	var valuesImgZ = new Uint8Array(tilesX * width * tilesY * height * 4);
+	var texWidth = Math.pow(2, Math.ceil(Math.log2(tilesX * width)));
+	var texHeight = Math.pow(2, Math.ceil(Math.log2(tilesY * height)));
+
+	var valuesImgZ = new Uint8Array(texWidth * texHeight * 4);
 
 	for (var i=0; i<values.length; i++) {
 		var v = (values[i] - isoMin) * isoRangeRecip;
@@ -99,9 +99,9 @@ module.exports = function createVolume(params, bounds) {
 		var tileY = Math.floor(z / tilesX);
 		var tileX = z - (tilesX * tileY);
 
-		var tileOff = (tileY * tilesX + tileX) * width * height;
+		var tileOff = (tileY * height) * texWidth + tileX * width;
 
-		var pxOff = tileOff + y * width * tilesX + x;
+		var pxOff = tileOff + y * texWidth + x;
 
 		valuesImgZ[pxOff * 4 ] = r;
 		valuesImgZ[pxOff * 4 + 1] = g;
@@ -109,11 +109,25 @@ module.exports = function createVolume(params, bounds) {
 		valuesImgZ[pxOff * 4 + 3] = a;
 	}
 
-	var tex = createTexture(gl, [tilesX * width, tilesY * height]);
+	var tex = createTexture(gl, [texWidth, texHeight]);
 	tex.minFilter = gl.LINEAR;
 	tex.magFilter = gl.LINEAR;
 	tex.bind();
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.shape[0], tex.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
+
+	var canvas = document.createElement('canvas');
+	canvas.width = tex.shape[0];
+	canvas.height = tex.shape[1];
+	var ctx = canvas.getContext('2d');
+	var id = ctx.getImageData(0,0,tex.shape[0], tex.shape[1]);
+	for (var i=0; i<id.data.length; i++) {
+		id.data[i] = valuesImgZ[i];
+	}
+	ctx.putImageData(id, 0, 0);
+	document.body.appendChild(canvas);
+	canvas.style.position='absolute';
+	canvas.style.zIndex = 10;
+	canvas.style.left = canvas.style.top = '0px';
 
 
 	// Create Z stack mesh [z grows]
@@ -231,6 +245,12 @@ module.exports = function createVolume(params, bounds) {
 			}
 		}
 	}
+
+	console.log(
+		tilesX, tilesY, 
+		meshgrid[0].length, meshgrid[1].length, meshgrid[2].length,
+		tex.shape[0], tex.shape[1]
+	);
 
 
 	return createTriMesh(gl, {
