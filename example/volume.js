@@ -68,6 +68,10 @@ getData('example/data/mri.csv', function(mricsv) {
     alphamap: alphamap,
     colormap: 'jet'
   }, bounds)
+  volume.clipBounds = [
+    [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]],
+    [meshgrid[0][meshgrid[0].length-1], meshgrid[1][meshgrid[1].length-1], meshgrid[2][meshgrid[2].length-1]],
+  ];
 
   var camera = createCamera(canvas, {
     eye:    [90, 90, 90],
