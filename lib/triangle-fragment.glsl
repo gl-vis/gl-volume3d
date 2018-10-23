@@ -273,7 +273,7 @@ void main() {
       //vec3 ou = uvw;
       if (all(lessThanEqual(uvw, clipBox.maxPoint)) && all(greaterThanEqual(uvw, clipBox.minPoint)) ) {
         vec4 c = readTex(texture, uvw);
-        accum += c * 0.1;
+        accum += c * 0.01;
         //vec4 col = getColor(uvw, c);
         //accum = mix(accum, col, col.a);
       }
