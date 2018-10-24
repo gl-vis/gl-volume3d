@@ -115,19 +115,19 @@ module.exports = function createVolume(params, bounds) {
 	tex.bind();
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.shape[0], tex.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
 
-	var canvas = document.createElement('canvas');
-	canvas.width = tex.shape[0];
-	canvas.height = tex.shape[1];
-	var ctx = canvas.getContext('2d');
-	var id = ctx.getImageData(0,0,tex.shape[0], tex.shape[1]);
-	for (var i=0; i<id.data.length; i++) {
-		id.data[i] = valuesImgZ[i];
-	}
-	ctx.putImageData(id, 0, 0);
-	document.body.appendChild(canvas);
-	canvas.style.position='absolute';
-	canvas.style.zIndex = 10;
-	canvas.style.left = canvas.style.top = '0px';
+	// var canvas = document.createElement('canvas');
+	// canvas.width = tex.shape[0];
+	// canvas.height = tex.shape[1];
+	// var ctx = canvas.getContext('2d');
+	// var id = ctx.getImageData(0,0,tex.shape[0], tex.shape[1]);
+	// for (var i=0; i<id.data.length; i++) {
+	// 	id.data[i] = valuesImgZ[i];
+	// }
+	// ctx.putImageData(id, 0, 0);
+	// document.body.appendChild(canvas);
+	// canvas.style.position='absolute';
+	// canvas.style.zIndex = 10;
+	// canvas.style.left = canvas.style.top = '0px';
 
 
 	// Create Z stack mesh [z grows]
@@ -156,101 +156,176 @@ module.exports = function createVolume(params, bounds) {
 	var modelEY = meshgrid[1][meshgrid[1].length-1];
 	var modelEZ = meshgrid[2][meshgrid[2].length-1];
 
-	for (var i = 0; i < meshgrid[2].length; i += meshgrid[2].length-1) {
-		var z = i / (meshgrid[2].length-1);
+	var z = 1;
+	var i = meshgrid[2].length-1;
+	for (var y = 1; y < meshgrid[1].length; y++) {
+		for (var x = 1; x < meshgrid[0].length; x++) {
+			var u0 = (x-1) / (meshgrid[0].length-1);
+			var u1 = x / (meshgrid[0].length-1);
+			var v0 = (y-1) / (meshgrid[1].length-1);
+			var v1 = y / (meshgrid[1].length-1);
+
+			positions.push(
+				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+				meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
+				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+				meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i]
+			);
+			triangleUVWs.push(
+				u0, v0, z,
+				u1, v0, z,
+				u1, v1, z,
+				u0, v0, z,
+				u1, v1, z,
+				u0, v1, z
+			);
+		}
+	}
+	var z = 0;
+	var i = 0;
+	for (var y = 1; y < meshgrid[1].length; y++) {
+		for (var x = 1; x < meshgrid[0].length; x++) {
+			var u0 = (x-1) / (meshgrid[0].length-1);
+			var u1 = x / (meshgrid[0].length-1);
+			var v0 = (y-1) / (meshgrid[1].length-1);
+			var v1 = y / (meshgrid[1].length-1);
+
+			positions.push(
+				meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i],
+				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
+				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
+				meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
+				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i]
+			);
+			triangleUVWs.push(
+				u0, v1, z,
+				u1, v1, z,
+				u0, v0, z,
+				u1, v1, z,
+				u1, v0, z,
+				u0, v0, z
+			);
+		}
+	}
+
+	var y = 0;
+	var i = 0;
+	for (var z = 1; z < meshgrid[2].length; z++) {
+		for (var x = 1; x < meshgrid[0].length; x++) {
+			var u0 = (x-1) / (meshgrid[0].length-1);
+			var u1 = x / (meshgrid[0].length-1);
+			var w0 = (z-1) / (meshgrid[2].length-1);
+			var w1 = z / (meshgrid[2].length-1);
+
+			positions.push(
+				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
+				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ]
+			);
+			triangleUVWs.push(
+				u0, y, w0,
+				u1, y, w0,
+				u1, y, w1,
+				u0, y, w0,
+				u1, y, w1,
+				u0, y, w1
+			);
+		}
+	}
+	var y = 1;
+	var i = meshgrid[1].length-1;
+	for (var z = 1; z < meshgrid[2].length; z++) {
+		for (var x = 1; x < meshgrid[0].length; x++) {
+			var u0 = (x-1) / (meshgrid[0].length-1);
+			var u1 = x / (meshgrid[0].length-1);
+			var w0 = (z-1) / (meshgrid[2].length-1);
+			var w1 = z / (meshgrid[2].length-1);
+
+			positions.push(
+				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ],
+				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
+				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
+				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
+				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1]
+			);
+			triangleUVWs.push(
+				u0, y, w1,
+				u1, y, w1,
+				u0, y, w0,
+				u1, y, w1,
+				u1, y, w0,
+				u0, y, w0
+			);
+		}
+	}
+
+	var x = 1;
+	var i = meshgrid[0].length-1;
+	for (var z = 1; z < meshgrid[2].length; z++) {
 		for (var y = 1; y < meshgrid[1].length; y++) {
-			for (var x = 1; x < meshgrid[0].length; x++) {
-				positions.push(
-					meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
-					meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
-					meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
-					meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
-					meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
-					meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i]
-				);
+			var v0 = (y-1) / (meshgrid[1].length-1);
+			var v1 = y / (meshgrid[1].length-1);
+			var w0 = (z-1) / (meshgrid[2].length-1);
+			var w1 = z / (meshgrid[2].length-1);
 
-				var u0 = (x-1) / (meshgrid[0].length-1);
-				var u1 = x / (meshgrid[0].length-1);
-				var v0 = (y-1) / (meshgrid[1].length-1);
-				var v1 = y / (meshgrid[1].length-1);
+			positions.push(
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ]
+			);
+			triangleUVWs.push(
+				x, v0, w0,
+				x, v1, w0,
+				x, v1, w1,
+				x, v0, w0,
+				x, v1, w1,
+				x, v0, w1
+			);
+		}
+	}
+	var x = 0;
+	var i = 0;
+	for (var z = 1; z < meshgrid[2].length; z++) {
+		for (var y = 1; y < meshgrid[1].length; y++) {
+			var v0 = (y-1) / (meshgrid[1].length-1);
+			var v1 = y / (meshgrid[1].length-1);
+			var w0 = (z-1) / (meshgrid[2].length-1);
+			var w1 = z / (meshgrid[2].length-1);
 
-				triangleUVWs.push(
-					u0, v0, z,
-					u1, v0, z,
-					u1, v1, z,
-					u0, v0, z,
-					u1, v1, z,
-					u0, v1, z
-				);
-			}
+			positions.push(
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1]
+			);
+			triangleUVWs.push(
+				x, v0, w1,
+				x, v1, w1,
+				x, v0, w0,
+				x, v1, w1,
+				x, v1, w0,
+				x, v0, w0
+			);
 		}
 	}
 
-	for (var i = 0; i < meshgrid[1].length; i += meshgrid[1].length-1) {
-		var y = i / (meshgrid[1].length-1);
-		for (var z = 1; z < meshgrid[2].length; z++) {
-			for (var x = 1; x < meshgrid[0].length; x++) {
-				positions.push(
-					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
-					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
-					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
-					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
-					meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
-					meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ]
-				);
-
-				var u0 = (x-1) / (meshgrid[0].length-1);
-				var u1 = x / (meshgrid[0].length-1);
-				var w0 = (z-1) / (meshgrid[2].length-1);
-				var w1 = z / (meshgrid[2].length-1);
-
-				triangleUVWs.push(
-					u0, y, w0,
-					u1, y, w0,
-					u1, y, w1,
-					u0, y, w0,
-					u1, y, w1,
-					u0, y, w1
-				);
-			}
-		}
-	}
-
-	for (var i = 0; i < meshgrid[0].length; i += meshgrid[0].length-1) {
-		var x = i / (meshgrid[0].length-1);
-		for (var z = 1; z < meshgrid[2].length; z++) {
-			for (var y = 1; y < meshgrid[1].length; y++) {
-				positions.push(
-					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
-					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
-					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
-					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
-					meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
-					meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ]
-				);
-
-				var v0 = (y-1) / (meshgrid[1].length-1);
-				var v1 = y / (meshgrid[1].length-1);
-				var w0 = (z-1) / (meshgrid[2].length-1);
-				var w1 = z / (meshgrid[2].length-1);
-
-				triangleUVWs.push(
-					x, v0, w0,
-					x, v1, w0,
-					x, v1, w1,
-					x, v0, w0,
-					x, v1, w1,
-					x, v0, w1
-				);
-			}
-		}
-	}
-
-	console.log(
-		tilesX, tilesY, 
-		meshgrid[0].length, meshgrid[1].length, meshgrid[2].length,
-		tex.shape[0], tex.shape[1]
-	);
+	// console.log(
+	// 	tilesX, tilesY, 
+	// 	meshgrid[0].length, meshgrid[1].length, meshgrid[2].length,
+	// 	tex.shape[0], tex.shape[1]
+	// );
 
 
 	return createTriMesh(gl, {

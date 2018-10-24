@@ -216,16 +216,20 @@ void main() {
 
 vec4 readTex(sampler2D tex, vec3 uvw) {
   float slice = uvw.z;
+  if (slice < 0.0 || slice > 1.0) {
+    return vec4(0.0);
+  }
   vec2 texDims = vec2(2048.0, 256.0);
   vec2 tileCounts = vec2(16.0, 8.0);
   vec2 tileDims = vec2(128.0, 27.0);
   float tileCount = 128.0;
   float idx = slice * tileCount;
-  float y = floor(floor(idx) / tileCounts.x);
-  float x = floor(idx) - y * tileCounts.x;
+  float fidx = floor(idx);
+  float y = floor(fidx / tileCounts.x);
+  float x = fidx - y * tileCounts.x;
 
   vec2 tileUV = vec2(x, y) * tileDims / texDims;
-  vec2 rUV = uvw.xy * (tileDims / texDims);
+  vec2 rUV = uvw.xy * ((tileDims-1.) / texDims);
 
   return texture2D(tex, tileUV + rUV, -100.0);
 }
@@ -233,11 +237,6 @@ vec4 readTex(sampler2D tex, vec3 uvw) {
 
 
 void main() {
-  //if(any(lessThan(f_data, clipBounds[0])) ||
-  //   any(greaterThan(f_data, clipBounds[1]))) {
-  //  discard;
-  //}
-
   vec2 uv = gl_FragCoord.xy / resolution * 2.0 - 1.0;
   mat4 clipToEye = inverse(projection);
   mat4 eyeToWorld = inverse(model * view);
@@ -254,8 +253,10 @@ void main() {
   float t1, t2;
   vec3 nml;
   Box clipBox = Box(clipBounds[0], clipBounds[1]);
+  vec3 boxSize = clipBounds[1] - clipBounds[0];
+  float boxLength = length(boxSize);
   if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {
-    vec3 uvw = f_uvw; //(ro + rd * t1);
+    // vec3 uvw = (ro + rd * t2);
     // if ( uIsocaps && all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {
     //   vec4 c = texture(uTexture, uvw, -16.0);
     //   if (abs(c.r - uIsoLevel) <= uIsoRange) {
@@ -266,70 +267,30 @@ void main() {
     // }
     vec3 p1 = ro + rd * t1;
     vec4 accum = vec4(0.0);
-    float steps = 128.0;
-    for (float i=0.0; i<=128.0; i++) {
+    float steps = 150.0;
+    for (float i=0.0; i<=150.0; i++) {
       float t = 1.0 - i/steps;
-      uvw = uvw + rd * 0.01; //(p1 + rd * (t2-t1) * t);
-      //vec3 ou = uvw;
-      if (all(lessThanEqual(uvw, clipBox.maxPoint)) && all(greaterThanEqual(uvw, clipBox.minPoint)) ) {
+      vec3 uvw = (p1 + rd * (t2-t1) * t) / boxSize;
+      if (all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {
         vec4 c = readTex(texture, uvw);
-        accum += c * 0.01;
-        //vec4 col = getColor(uvw, c);
-        //accum = mix(accum, col, col.a);
+        float intensity = clamp((c.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
+
+        if (useColormap) {
+          c.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;
+        }
+
+        if (useAlphamap) {
+          c.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;
+        } else {
+          c.a = intensity * opacity;
+        }
+
+        accum = mix(accum, c, c.a);
       }
     }
-    color = accum;
-    //color = mix(1.0 - accum, color, color.a);
-    //color.a = 1.0;
+    color = mix(accum, color, color.a);
+    color.rgb *= color.a;
   }
 
-  gl_FragColor = vec4(color.rgb, 1.0); //vec4(1.0, 0.0, 1.0, 1.0); //tex;
-
-  // vec4 tex = texture2D(texture, f_uvw.xy);
-
-  // float intensity = clamp((tex.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
-
-  // if (useColormap) {
-  //   tex.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;
-  // }
-
-  // if (useAlphamap) {
-  //   tex.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;
-  // } else {
-  //   tex.a = intensity * opacity;
-  // }
-
-  // tex.rgb *= tex.a;
-
-  // vec3 v = normalize(vec3(1.0, 1.0, 1.0));
-
-  // vec3 c = vec3(0.0);
-  // vec3 uvw = f_uvw;
-  // for (int i = 0; i < 128; i++) {
-  //   vec4 t = readTex(texture, uvw);
-  //   c += t.rgb * 0.01;
-  //   uvw += v * 0.01;
-  // }
-
-  // gl_FragColor = vec4(c, 1.0); //vec4(1.0, 0.0, 1.0, 1.0); //tex;
-
-  /*
-
-  vec3 N = normalize(f_normal);
-  vec3 L = normalize(f_lightDirection);
-  vec3 V = normalize(f_eyeDirection);
-
-  if(!gl_FrontFacing) {
-    N = -N;
-  }
-
-  float specular = cookTorrance(L, V, N, roughness, fresnel);
-  float diffuse  = min(kambient + kdiffuse * max(dot(N, L), 0.0), 1.0);
-
-  vec4 surfaceColor = texture2D(texture, f_uv);
-  vec4 litColor = surfaceColor.a * vec4(diffuse * surfaceColor.rgb + kspecular * vec3(1,1,1) * specular,  1.0);
-
-  gl_FragColor = litColor * opacity;
-
-  */
+  gl_FragColor = color;
 }

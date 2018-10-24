@@ -63,8 +63,8 @@ getData('example/data/mri.csv', function(mricsv) {
     meshgrid: meshgrid,
   	dimensions: dims,
   	isoBounds: [10, 88],
-  	intensityBounds: [0.1, 0.4],
-    opacity: 0.1,
+  	intensityBounds: [10, 88],
+    opacity: 1,
     alphamap: alphamap,
     colormap: 'jet'
   }, bounds)
