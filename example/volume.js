@@ -48,14 +48,8 @@ getData('example/data/mri.csv', function(mricsv) {
   var alphamap = [];
   for (var i=0; i<256; i++) {
     var v = i/255;
-    var a = 1;
-    if (v < 0.1) {
-      a = v*2;
-    }
-    if (v > 0.3) {
-      a = 0.2 - (v-0.3)/0.7;
-    }
-    alphamap[i] = a;
+    var a = Math.cos(v * Math.PI*2 - Math.PI) * 0.5 + 0.5;
+    alphamap[i] = a*a;
   }
 
   var volume = createVolume(gl, {
