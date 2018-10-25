@@ -64,7 +64,7 @@ getData('example/data/mri.csv', function(mricsv) {
   	dimensions: dims,
   	isoBounds: [10, 88],
   	intensityBounds: [10, 88],
-    opacity: 0.1,
+    opacity: 0.05,
     alphamap: alphamap,
     colormap: 'jet',
     clipBounds: [

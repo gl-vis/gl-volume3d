@@ -283,7 +283,7 @@ void main() {
     vec3 farHit = ro + rd * t2;
     vec4 accum = vec4(0.0);
     float steps = 256.0;
-    float stepSize = clipBoxLength / steps;
+    float stepSize = (t2-t1) / steps;
     for (float i=0.0; i<256.0; i++) {
       vec3 p = (farHit - rd * i * stepSize);
       vec3 uvw = p / volumeBoxSize;
