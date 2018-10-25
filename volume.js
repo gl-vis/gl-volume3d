@@ -327,8 +327,12 @@ module.exports = function createVolume(params, bounds) {
 	// 	tex.shape[0], tex.shape[1]
 	// );
 
+	var volumeBounds = [
+		[meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]],
+		[meshgrid[0][meshgrid[0].length-1], meshgrid[1][meshgrid[1].length-1], meshgrid[2][meshgrid[2].length-1]]
+	];
 
-	return createTriMesh(gl, {
+	var mesh = createTriMesh(gl, {
 		positions: positions,
 		triangleUVWs: triangleUVWs,
 
@@ -339,8 +343,12 @@ module.exports = function createVolume(params, bounds) {
 		transparent: true,
 
 		isoBounds: isoBounds,
-		intensityBounds: intensityBounds,
-		clipBounds: clipBounds
+		intensityBounds: intensityBounds
 	});
+
+	mesh.bounds = volumeBounds;
+	mesh.clipBounds = clipBounds || volumeBounds;
+	
+	return mesh;
 };
 

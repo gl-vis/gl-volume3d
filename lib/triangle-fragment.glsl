@@ -6,6 +6,7 @@ precision mediump float;
 
 
 uniform vec3 clipBounds[2];
+uniform vec3 volumeBounds[2];
 uniform float intensityBounds[2];
 uniform float roughness
             , fresnel
@@ -231,8 +232,20 @@ vec4 readTex(sampler2D tex, vec3 uvw) {
   vec2 tileUV = vec2(x, y) * tileDims / texDims;
   vec2 rUV = uvw.xy * ((tileDims-1.) / texDims);
 
-  return texture2D(tex, tileUV + rUV, -100.0);
+  float fidx2 = ceil(idx);
+  float y2 = floor(fidx / tileCounts.x);
+  float x2 = fidx - y * tileCounts.x;
+
+  vec2 tile2UV = vec2(x2, y2) * tileDims / texDims;
+  vec2 r2UV = uvw.xy * ((tileDims-1.) / texDims);
+
+  return mix(
+    texture2D(tex, tileUV + rUV, -100.0),
+    texture2D(tex, tile2UV + r2UV, -100.0),
+    fract(slice)
+  );
 }
+
 
 
 
@@ -249,12 +262,14 @@ void main() {
   vec3 ro = worldNear.xyz / worldNear.w;
   vec3 rd = normalize((worldFar.xyz / worldFar.w) - ro);
 
-  vec4 color = vec4(1.0, 0.0, 1.0, 0.0);
+  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
   float t1, t2;
   vec3 nml;
+  Box volumeBox = Box(volumeBounds[0], volumeBounds[1]);
+  vec3 volumeBoxSize = volumeBounds[1] - volumeBounds[0];
   Box clipBox = Box(clipBounds[0], clipBounds[1]);
-  vec3 boxSize = clipBounds[1] - clipBounds[0];
-  float boxLength = length(boxSize);
+  vec3 clipBoxSize = clipBounds[1] - clipBounds[0];
+  float clipBoxLength = length(clipBoxSize);
   if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {
     // vec3 uvw = (ro + rd * t2);
     // if ( uIsocaps && all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {
@@ -265,13 +280,14 @@ void main() {
     //     color.a = sqrt(c.r) * c.a;
     //   }
     // }
-    vec3 p1 = ro + rd * t1;
+    vec3 farHit = ro + rd * t2;
     vec4 accum = vec4(0.0);
-    float steps = 150.0;
-    for (float i=0.0; i<=150.0; i++) {
-      float t = 1.0 - i/steps;
-      vec3 uvw = (p1 + rd * (t2-t1) * t) / boxSize;
-      if (all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {
+    float steps = 256.0;
+    float stepSize = clipBoxLength / steps;
+    for (float i=0.0; i<256.0; i++) {
+      vec3 p = (farHit - rd * i * stepSize);
+      vec3 uvw = p / volumeBoxSize;
+      if (all(lessThanEqual(p, clipBounds[1])) && all(greaterThanEqual(p, clipBounds[0])) ) {
         vec4 c = readTex(texture, uvw);
         float intensity = clamp((c.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
 
@@ -285,11 +301,12 @@ void main() {
           c.a = intensity * opacity;
         }
 
-        accum = mix(accum, c, c.a);
+        accum.rgb = mix(accum.rgb, c.rgb, c.a);
+        accum.a += (1.0 - accum.a) * c.a;
       }
     }
-    color = mix(accum, color, color.a);
-    color.rgb *= color.a;
+    color = accum;
+    // color.rgb *= color.a;
   }
 
   gl_FragColor = color;
