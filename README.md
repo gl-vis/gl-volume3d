@@ -61,7 +61,7 @@ Creates a volume visualization out of a 3D array.
 
 * `params` is an object that has the following properties:
 
-	+ `gl` *(Required)* WebGL context to use
+    + `gl` *(Required)* WebGL context to use
     + `values` *(Required)* An flattened 3D array of values
     + `meshgrid` *(Required)* Meshgrid to use for the value coordinates
     + `isoBounds` *(Recommended)* The range of values to render in the volume. Defaults  to the minimum and maximum values of the values array.
@@ -69,7 +69,8 @@ Creates a volume visualization out of a 3D array.
     + `colormap` *(Optional)* Name of the color map to use.
     + `alphamap` *(Optional)* Opacity lookup table, a 256-element array that maps intensity to voxel opacity. The first element is intensity 0 (after intensityBounds mapping), the last element is intensity 1.
     + `opacity` *(Optional)* Multiplier for the voxel opacities. Used for controlling the volume transparency.
-	* `clipBounds` *(Optional)* Bounds object that tells what part of the volume to display. It defaults to [ [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]], [meshgrid[0][-1], meshgrid[1][-1], meshgrid[2][-1]] ].
+    + `raySteps` *(Optional)* Number of steps to use when ray marching the volume. Higher values yield higher quality, while low values improve performance. Increasing ray steps increases the total opacity as well, you can adjust for that using the opacity parameter. Default value is 256.
+    + `clipBounds` *(Optional)* Bounds object that tells what part of the volume to display. It defaults to [ [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]], [meshgrid[0][-1], meshgrid[1][-1], meshgrid[2][-1]] ].
 
 **Returns** A volume plot object that can be passed to gl-mesh3d.
 

@@ -51,11 +51,12 @@ getData('example/data/mri.csv', function(mricsv) {
   }
 
   var volume = createVolume(gl, {
-  	values: mri,
+    values: mri,
     meshgrid: meshgrid,
-  	isoBounds: [10, 88],
-  	intensityBounds: [40, 70],
-    opacity: 0.1,
+    isoBounds: [10, 88],
+    intensityBounds: [40, 70],
+    opacity: 0.05,
+    raySteps: 256,
     alphamap: alphamap,
     colormap: 'jet',
     clipBounds: [

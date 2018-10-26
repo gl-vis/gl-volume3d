@@ -5,23 +5,11 @@ var mat4 = require('gl-mat4');
 var createTexture = require('gl-texture2d');
 var createTriMesh = require('./lib/simplemesh.js');
 
-
-/*
-	How this should work:
-
-	1) take in a [w,h,d] 3d array of data
-	2) turn the array into w + h + d slice textures
-	3) generate w + h + d slice quads, each pointing to its own texture
-	4) render quads back-to-front with source-over blend
-
-*/
-
-module.exports = function createVolume(params, bounds) {
+module.exports = function createVolume(params) {
 	var gl = params.gl;
 	if (!gl) {
 		gl = arguments[0];
 		params = arguments[1];
-		bounds = arguments[2];
 	}
 	var rawIsoBounds = params.isoBounds, 
 		rawIntensityBounds = params.intensityBounds, 
@@ -84,8 +72,6 @@ module.exports = function createVolume(params, bounds) {
 
 	var texWidth = Math.pow(2, Math.ceil(Math.log2(tilesX * width)));
 	var texHeight = Math.pow(2, Math.ceil(Math.log2(tilesY * height)));
-
-	console.log(texWidth, texHeight, tilesX, tilesY, width, height);
 
 	var valuesImgZ = new Uint8Array(texWidth * texHeight * 4);
 
@@ -339,6 +325,7 @@ module.exports = function createVolume(params, bounds) {
 	];
 
 	var mesh = createTriMesh(gl, {
+		raySteps: params.raySteps || 256,
 		positions: positions,
 		triangleUVWs: triangleUVWs,
 

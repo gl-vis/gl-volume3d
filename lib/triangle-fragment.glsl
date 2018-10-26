@@ -1,3 +1,5 @@
+#define RAY_STEPS 256.0
+
 precision mediump float;
 
 #pragma glslify: cookTorrance = require(glsl-specular-cook-torrance)
@@ -178,9 +180,8 @@ void main() {
     // }
     vec3 farHit = ro + rd * t2;
     vec4 accum = vec4(0.0);
-    float steps = 256.0;
-    float stepSize = clipBoxLength / steps;
-    for (float i=0.0; i<256.0; i++) {
+    float stepSize = clipBoxLength / RAY_STEPS;
+    for (float i = 0.0; i < RAY_STEPS; i++) {
       vec3 p = (farHit - rd * i * stepSize);
       vec3 uvw = p / volumeBoxSize;
       if (all(lessThanEqual(p, clipBounds[1])) && all(greaterThanEqual(p, clipBounds[0])) ) {
