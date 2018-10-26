@@ -74,4 +74,4 @@ Creates a volume visualization out of a 3D array.
 **Returns** A volume plot object that can be passed to gl-mesh3d.
 
 # Credits
-(c) 2013-2017 Mikola Lysenko, Ilmari Heikkinen. MIT License
+(c) 2013-2018 Mikola Lysenko, Ilmari Heikkinen. MIT License
