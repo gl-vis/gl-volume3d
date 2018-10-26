@@ -2135,34 +2135,40 @@ getData('example/data/mri.csv', function(mricsv) {
   var mri = parseCSV(mricsv.replace(/\r?\n/g, ','))[0];
   mri.pop();
 
-  var dims = [128, 64, 128]
-  var [width, height, depth] = dims;
-  var bounds = [[0,0,0], [25, 12.5, 25]]
+  var bounds = [[0,0,0], [25, 25, 25]]
 
+  var values = [];
   var meshgrid = [[],[],[]];
   for (var i=0; i<128; i++) meshgrid[0].push(bounds[0][0] + (bounds[1][0]-bounds[0][0]) * i/127);
-  for (var i=0; i<27; i++) meshgrid[1].push(bounds[0][1] + (bounds[1][1]-bounds[0][1]) * i/26);
+  for (var i=0; i<128; i++) meshgrid[1].push(bounds[0][1] + (bounds[1][1]-bounds[0][1]) * i/127);
   for (var i=0; i<128; i++) meshgrid[2].push(bounds[0][2] + (bounds[1][2]-bounds[0][2]) * i/127);
+
+  for (var z=0; z<128; z++) {
+    for (var y=0; y<128; y++) {
+      for (var x=0; x<128; x++) {
+        values.push(Math.min((x/127),(y/127),(z/127)));
+      }
+    }
+  }
 
   var alphamap = [];
   for (var i=0; i<256; i++) {
     var v = i/255;
-    var a = Math.cos(v * Math.PI*2 - Math.PI) * 0.5 + 0.5;
-    alphamap[i] = a*a;
+    var a = v; //Math.cos(v * Math.PI*2 - Math.PI) * 0.5 + 0.5;
+    alphamap[i] = a;
   }
 
   var volume = createVolume(gl, {
-  	values: mri,
+  	values: values,
     meshgrid: meshgrid,
-  	dimensions: dims,
-  	isoBounds: [10, 88],
-  	intensityBounds: [10, 88],
+  	isoBounds: [0, 1],
+  	intensityBounds: [0, 1],
     opacity: 0.05,
     alphamap: alphamap,
     colormap: 'jet',
     clipBounds: [
       [0, 0, 0],
-      [25, 10.5, 25]
+      [25, 25, 25]
     ]
   })
 
@@ -2217,7 +2223,7 @@ getData('example/data/mri.csv', function(mricsv) {
 
 
 var triVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position;\nattribute vec3 uvw;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec3 f_uvw;\n\nvoid main() {\n  vec4 m_position  = model * vec4(position, 1.0);\n  vec4 t_position  = view * m_position;\n  gl_Position      = projection * t_position;\n  f_data           = position;\n  f_eyeDirection   = eyePosition   - position;\n  f_lightDirection = lightPosition - position;\n  f_uvw            = uvw;\n}"
-var triFragSrc = "#extension GL_OES_standard_derivatives : enable\n\nprecision mediump float;\n#define GLSLIFY 1\n\nfloat beckmannDistribution_2_0(float x, float roughness) {\n  float NdotH = max(x, 0.0001);\n  float cos2Alpha = NdotH * NdotH;\n  float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;\n  float roughness2 = roughness * roughness;\n  float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;\n  return exp(tan2Alpha / roughness2) / denom;\n}\n\n\n\nfloat cookTorranceSpecular_1_1(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float roughness,\n  float fresnel) {\n\n  float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);\n  float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);\n\n  //Half angle vector\n  vec3 H = normalize(lightDirection + viewDirection);\n\n  //Geometric term\n  float NdotH = max(dot(surfaceNormal, H), 0.0);\n  float VdotH = max(dot(viewDirection, H), 0.000001);\n  float LdotH = max(dot(lightDirection, H), 0.000001);\n  float G1 = (2.0 * NdotH * VdotN) / VdotH;\n  float G2 = (2.0 * NdotH * LdotN) / LdotH;\n  float G = min(1.0, min(G1, G2));\n  \n  //Distribution term\n  float D = beckmannDistribution_2_0(NdotH, roughness);\n\n  //Fresnel term\n  float F = pow(1.0 - VdotN, fresnel);\n\n  //Multiply terms and done\n  return  G * F * D / max(3.14159265 * VdotN, 0.000001);\n}\n\n\n\n\nuniform vec3 clipBounds[2];\nuniform vec3 volumeBounds[2];\nuniform float intensityBounds[2];\nuniform float roughness\n            , fresnel\n            , kambient\n            , kdiffuse\n            , kspecular\n            , opacity;\nuniform sampler2D texture;\nuniform sampler2D colormap;\nuniform sampler2D alphamap;\nuniform bool useColormap;\nuniform bool useAlphamap;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nuniform vec2 resolution;\n\n// Used to compute uvw -> uv\nuniform vec2 texDims;\nuniform vec2 texTiles;\nuniform vec2 tileDims;\n\n\nvarying vec3 f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec3 f_uvw;\n\nstruct Box {\n  vec3 minPoint;\n  vec3 maxPoint;\n};\n\nmat4 inverse(mat4 m) {\n  float\n      a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3],\n      a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3],\n      a20 = m[2][0], a21 = m[2][1], a22 = m[2][2], a23 = m[2][3],\n      a30 = m[3][0], a31 = m[3][1], a32 = m[3][2], a33 = m[3][3],\n\n      b00 = a00 * a11 - a01 * a10,\n      b01 = a00 * a12 - a02 * a10,\n      b02 = a00 * a13 - a03 * a10,\n      b03 = a01 * a12 - a02 * a11,\n      b04 = a01 * a13 - a03 * a11,\n      b05 = a02 * a13 - a03 * a12,\n      b06 = a20 * a31 - a21 * a30,\n      b07 = a20 * a32 - a22 * a30,\n      b08 = a20 * a33 - a23 * a30,\n      b09 = a21 * a32 - a22 * a31,\n      b10 = a21 * a33 - a23 * a31,\n      b11 = a22 * a33 - a23 * a32,\n\n      det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;\n\n  return mat4(\n      a11 * b11 - a12 * b10 + a13 * b09,\n      a02 * b10 - a01 * b11 - a03 * b09,\n      a31 * b05 - a32 * b04 + a33 * b03,\n      a22 * b04 - a21 * b05 - a23 * b03,\n      a12 * b08 - a10 * b11 - a13 * b07,\n      a00 * b11 - a02 * b08 + a03 * b07,\n      a32 * b02 - a30 * b05 - a33 * b01,\n      a20 * b05 - a22 * b02 + a23 * b01,\n      a10 * b10 - a11 * b08 + a13 * b06,\n      a01 * b08 - a00 * b10 - a03 * b06,\n      a30 * b04 - a31 * b02 + a33 * b00,\n      a21 * b02 - a20 * b04 - a23 * b00,\n      a11 * b07 - a10 * b09 - a12 * b06,\n      a00 * b09 - a01 * b07 + a02 * b06,\n      a31 * b01 - a30 * b03 - a32 * b00,\n      a20 * b03 - a21 * b01 + a22 * b00) / det;\n}\n\nbool boxIntersect(vec3 ro, vec3 rd, Box box, out float t1, out float t2, out vec3 nml)\n{\n  vec3 ird = 1.0 / rd;\n  vec3 v1 = (box.minPoint - ro) * ird;\n  vec3 v2 = (box.maxPoint - ro) * ird;\n  vec3 n = min(v1, v2);\n  vec3 f = max(v1, v2);\n  float enter = max(n.x, max(n.y, n.z));\n  float exit = min(f.x, min(f.y, f.z));\n  if (exit > 0.0 && enter < exit) {\n    t1 = enter;\n    t2 = exit;\n    return true;\n  }\n  return false;\n}\n\nbool planeIntersect(vec3 ro, vec3 rd, vec3 p, vec3 nml, out float t)\n{\n  float d = dot(nml, rd);\n  if (d <= 0.0) {\n    return false;\n  }\n  d = -dot(ro-p, nml) / d;\n  if (d < 0.0) {\n    return false;\n  }\n  t = d;\n  return true;\n}\n\n/*\n\nvec3 gradient(vec3 uvw, vec4 c)\n{\n  vec3 e = vec3(0.0, 0.0, 1.0 / 256.0);\n  vec4 dx = texture(uTexture, uvw + e.zxx, -16.0) - c;\n  vec4 dy = texture(uTexture, uvw + e.xzx, -16.0) - c;\n  vec4 dz = texture(uTexture, uvw + e.xxz, -16.0) - c;\n  return vec3(dx.r, dy.r, dz.r);\n}\n\nvec3 grey(vec3 rgb) {\n  return vec3((rgb.r + rgb.g + rgb.b) / 3.0);\n}\n\nvec4 getColor(vec3 uvw, vec4 c) {\n  vec3 grad = gradient(uvw, c);\n  float alpha = 0.005; //mix(0.05*c.r, 0.01*c.r, pow(clamp(c.r+0., 0.0, 1.0), 4.0));\n  if (abs(c.r - uIsoLevel) <= uIsoRange) {\n    alpha = 0.15;\n  }\n  alpha *= c.a;\n  c.r = abs(c.r - uIsoLevel) * 2.0;\n  vec3 col = 1.0-max(vec3(0.0), vec3(c.r*2., abs(0.7-c.r), 0.8-c.r)+0.5);\n  col = col.bgr;\n  col.r *= 0.75;\n  col.b *= 0.5;\n  return vec4(pow(grey(abs(grad))+abs(grad), vec3(0.5))+col, alpha);  \n}\n\nvec4 getCapColor(vec3 uvw, vec4 c) {\n  vec3 grad = gradient(uvw, c);\n  float alpha = 0.005; //mix(0.05*c.r, 0.01*c.r, pow(clamp(c.r+0., 0.0, 1.0), 4.0));\n  if (abs(c.r - uIsoLevel) <= uIsoRange) {\n    alpha = 0.15;\n  }\n  alpha *= c.a;\n  vec3 col = 1.0-max(vec3(0.0), vec3(c.r*2., abs(0.7-c.r), 0.8-c.r)+0.5);\n  col = col.bgr;\n  col.r *= 0.75;\n  col.b *= 0.5;\n  return vec4(pow(grey(abs(grad))+abs(grad), vec3(0.5))+col, alpha);  \n}\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / uResolution * 2.0 - 1.0;\n  mat4 clipToEye = inverse(uProjection);\n  mat4 eyeToWorld = inverse(uModelView);\n  vec4 clipNear = vec4(uv, -1.0, 1.0);\n  vec4 clipFar = vec4(uv, 1.0, 1.0);\n  vec4 eyeNear = clipToEye * clipNear;\n  vec4 eyeFar = clipToEye * clipFar;\n  vec4 worldNear = eyeToWorld * eyeNear;\n  vec4 worldFar = eyeToWorld * eyeFar;\n  vec3 ro = worldNear.xyz / worldNear.w;\n  vec3 rd = normalize((worldFar.xyz / worldFar.w) - ro);\n  color = vec4(0.0);\n  float t1, t2;\n  vec3 nml;\n  Box clipBox = Box(uClipBoxMin, uClipBoxMax);\n  if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {\n    vec3 uvw = (ro + rd * t1);\n    if ( uIsocaps && all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {\n      vec4 c = texture(uTexture, uvw, -16.0);\n      if (abs(c.r - uIsoLevel) <= uIsoRange) {\n        vec4 col = getCapColor(uvw, c);\n        color = 1.0 - col;\n        color.a = sqrt(c.r) * c.a;\n      }\n    }\n    vec3 p1 = ro + rd * t1;\n    vec4 accum = vec4(0.0);\n    bool noHit = true;\n    float steps = ceil((t2-t1) * uRaySteps);\n    for (float i=0.0; i<=steps; i++) {\n      float t = 1.0 - i/steps;\n      vec3 uvw = (p1 + rd * (t2-t1) * t);\n      //uvw += vec3(sin(uTime + uvw.y*6.0) * 0.2, 0.0, 0.0);\n      vec3 ou = uvw;\n      if (all(lessThanEqual(uvw, clipBox.maxPoint)) && all(greaterThanEqual(uvw, clipBox.minPoint)) ) {\n        vec4 c = texture(uTexture, uvw, -16.0);\n        //if (abs(c.r - uIsoLevel) <= uIsoRange) {\n          vec4 col = getColor(uvw, c);\n          accum = mix(accum, col, col.a);\n          noHit = false;\n        //}\n      }\n    }\n//    if (noHit) {\n//      discard;\n//      return;\n//    }\n    color = mix(1.0 - accum, color, color.a);\n    color.a = 1.0;\n  }\n}\n\n*/\n\nvec4 readTex(sampler2D tex, vec3 uvw) {\n  float slice = uvw.z;\n  if (slice < 0.0 || slice > 1.0) {\n    return vec4(0.0);\n  }\n  vec2 texDims = vec2(2048.0, 256.0);\n  vec2 tileCounts = vec2(16.0, 8.0);\n  vec2 tileDims = vec2(128.0, 27.0);\n  float tileCount = 128.0;\n  float idx = slice * tileCount;\n  float fidx = floor(idx);\n  float y = floor(fidx / tileCounts.x);\n  float x = fidx - y * tileCounts.x;\n\n  vec2 tileUV = vec2(x, y) * tileDims / texDims;\n  vec2 rUV = uvw.xy * ((tileDims-1.) / texDims);\n\n  float fidx2 = ceil(idx);\n  float y2 = floor(fidx / tileCounts.x);\n  float x2 = fidx - y * tileCounts.x;\n\n  vec2 tile2UV = vec2(x2, y2) * tileDims / texDims;\n  vec2 r2UV = uvw.xy * ((tileDims-1.) / texDims);\n\n  return mix(\n    texture2D(tex, tileUV + rUV, -100.0),\n    texture2D(tex, tile2UV + r2UV, -100.0),\n    fract(slice)\n  );\n}\n\n\n\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / resolution * 2.0 - 1.0;\n  mat4 clipToEye = inverse(projection);\n  mat4 eyeToWorld = inverse(model * view);\n  vec4 clipNear = vec4(uv, -1.0, 1.0);\n  vec4 clipFar = vec4(uv, 1.0, 1.0);\n  vec4 eyeNear = clipToEye * clipNear;\n  vec4 eyeFar = clipToEye * clipFar;\n  vec4 worldNear = eyeToWorld * eyeNear;\n  vec4 worldFar = eyeToWorld * eyeFar;\n  vec3 ro = worldNear.xyz / worldNear.w;\n  vec3 rd = normalize((worldFar.xyz / worldFar.w) - ro);\n\n  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);\n  float t1, t2;\n  vec3 nml;\n  Box volumeBox = Box(volumeBounds[0], volumeBounds[1]);\n  vec3 volumeBoxSize = volumeBounds[1] - volumeBounds[0];\n  Box clipBox = Box(clipBounds[0], clipBounds[1]);\n  vec3 clipBoxSize = clipBounds[1] - clipBounds[0];\n  float clipBoxLength = length(clipBoxSize);\n  if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {\n    // vec3 uvw = (ro + rd * t2);\n    // if ( uIsocaps && all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {\n    //   vec4 c = texture(uTexture, uvw, -16.0);\n    //   if (abs(c.r - uIsoLevel) <= uIsoRange) {\n    //     vec4 col = getCapColor(uvw, c);\n    //     color = 1.0 - col;\n    //     color.a = sqrt(c.r) * c.a;\n    //   }\n    // }\n    vec3 farHit = ro + rd * t2;\n    vec4 accum = vec4(0.0);\n    float steps = 256.0;\n    float stepSize = (t2-t1) / steps;\n    for (float i=0.0; i<256.0; i++) {\n      vec3 p = (farHit - rd * i * stepSize);\n      vec3 uvw = p / volumeBoxSize;\n      if (all(lessThanEqual(p, clipBounds[1])) && all(greaterThanEqual(p, clipBounds[0])) ) {\n        vec4 c = readTex(texture, uvw);\n        float intensity = clamp((c.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);\n\n        if (useColormap) {\n          c.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;\n        }\n\n        if (useAlphamap) {\n          c.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;\n        } else {\n          c.a = intensity * opacity;\n        }\n\n        accum.rgb = mix(accum.rgb, c.rgb, c.a);\n        accum.a += (1.0 - accum.a) * c.a;\n      }\n    }\n    color = accum;\n    // color.rgb *= color.a;\n  }\n\n  gl_FragColor = color;\n}"
+var triFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nfloat beckmannDistribution_2_0(float x, float roughness) {\n  float NdotH = max(x, 0.0001);\n  float cos2Alpha = NdotH * NdotH;\n  float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;\n  float roughness2 = roughness * roughness;\n  float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;\n  return exp(tan2Alpha / roughness2) / denom;\n}\n\n\n\nfloat cookTorranceSpecular_1_1(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float roughness,\n  float fresnel) {\n\n  float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);\n  float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);\n\n  //Half angle vector\n  vec3 H = normalize(lightDirection + viewDirection);\n\n  //Geometric term\n  float NdotH = max(dot(surfaceNormal, H), 0.0);\n  float VdotH = max(dot(viewDirection, H), 0.000001);\n  float LdotH = max(dot(lightDirection, H), 0.000001);\n  float G1 = (2.0 * NdotH * VdotN) / VdotH;\n  float G2 = (2.0 * NdotH * LdotN) / LdotH;\n  float G = min(1.0, min(G1, G2));\n  \n  //Distribution term\n  float D = beckmannDistribution_2_0(NdotH, roughness);\n\n  //Fresnel term\n  float F = pow(1.0 - VdotN, fresnel);\n\n  //Multiply terms and done\n  return  G * F * D / max(3.14159265 * VdotN, 0.000001);\n}\n\n\n\n\nuniform vec3 clipBounds[2];\nuniform vec3 volumeBounds[2];\nuniform float intensityBounds[2];\nuniform float roughness\n            , fresnel\n            , kambient\n            , kdiffuse\n            , kspecular\n            , opacity;\nuniform sampler2D texture;\nuniform sampler2D colormap;\nuniform sampler2D alphamap;\nuniform bool useColormap;\nuniform bool useAlphamap;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nuniform vec2 resolution;\n\n// Used to compute uvw -> uv\nuniform vec2 texDims;\nuniform vec2 tileCounts;\nuniform vec2 tileDims;\n\n\nvarying vec3 f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec3 f_uvw;\n\nstruct Box {\n  vec3 minPoint;\n  vec3 maxPoint;\n};\n\nmat4 inverse(mat4 m) {\n  float\n      a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3],\n      a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3],\n      a20 = m[2][0], a21 = m[2][1], a22 = m[2][2], a23 = m[2][3],\n      a30 = m[3][0], a31 = m[3][1], a32 = m[3][2], a33 = m[3][3],\n\n      b00 = a00 * a11 - a01 * a10,\n      b01 = a00 * a12 - a02 * a10,\n      b02 = a00 * a13 - a03 * a10,\n      b03 = a01 * a12 - a02 * a11,\n      b04 = a01 * a13 - a03 * a11,\n      b05 = a02 * a13 - a03 * a12,\n      b06 = a20 * a31 - a21 * a30,\n      b07 = a20 * a32 - a22 * a30,\n      b08 = a20 * a33 - a23 * a30,\n      b09 = a21 * a32 - a22 * a31,\n      b10 = a21 * a33 - a23 * a31,\n      b11 = a22 * a33 - a23 * a32,\n\n      det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;\n\n  return mat4(\n      a11 * b11 - a12 * b10 + a13 * b09,\n      a02 * b10 - a01 * b11 - a03 * b09,\n      a31 * b05 - a32 * b04 + a33 * b03,\n      a22 * b04 - a21 * b05 - a23 * b03,\n      a12 * b08 - a10 * b11 - a13 * b07,\n      a00 * b11 - a02 * b08 + a03 * b07,\n      a32 * b02 - a30 * b05 - a33 * b01,\n      a20 * b05 - a22 * b02 + a23 * b01,\n      a10 * b10 - a11 * b08 + a13 * b06,\n      a01 * b08 - a00 * b10 - a03 * b06,\n      a30 * b04 - a31 * b02 + a33 * b00,\n      a21 * b02 - a20 * b04 - a23 * b00,\n      a11 * b07 - a10 * b09 - a12 * b06,\n      a00 * b09 - a01 * b07 + a02 * b06,\n      a31 * b01 - a30 * b03 - a32 * b00,\n      a20 * b03 - a21 * b01 + a22 * b00) / det;\n}\n\nbool boxIntersect(vec3 ro, vec3 rd, Box box, out float t1, out float t2, out vec3 nml)\n{\n  vec3 ird = 1.0 / rd;\n  vec3 v1 = (box.minPoint - ro) * ird;\n  vec3 v2 = (box.maxPoint - ro) * ird;\n  vec3 n = min(v1, v2);\n  vec3 f = max(v1, v2);\n  float enter = max(n.x, max(n.y, n.z));\n  float exit = min(f.x, min(f.y, f.z));\n  if (exit > 0.0 && enter < exit) {\n    t1 = enter;\n    t2 = exit;\n    return true;\n  }\n  return false;\n}\n\nbool planeIntersect(vec3 ro, vec3 rd, vec3 p, vec3 nml, out float t)\n{\n  float d = dot(nml, rd);\n  if (d <= 0.0) {\n    return false;\n  }\n  d = -dot(ro-p, nml) / d;\n  if (d < 0.0) {\n    return false;\n  }\n  t = d;\n  return true;\n}\n\nvec2 getTileUV(float tileIdx) {\n  float y = floor(tileIdx / tileCounts.x);\n  float x = tileIdx - y * tileCounts.x;\n\n  vec2 tileUV = vec2(x, y) * (tileDims / texDims);\n  return tileUV;\n}\n\nvec4 readTex(sampler2D tex, vec3 uvw) {\n  float fidx, y, x;\n\n  float slice = uvw.z;\n  float tileCount = tileCounts.x * tileCounts.y;\n  float idx = slice * (tileCount-1.0);\n  vec2 pxUV = uvw.xy * (tileDims-1.0);\n  pxUV += 0.5;\n  vec2 rUV = pxUV / (texDims-1.0);\n\n  vec2 tileUV = getTileUV(floor(idx));\n  vec2 tile2UV = getTileUV(ceil(idx));\n\n  return mix(\n    texture2D(tex, tileUV + rUV, -16.0),\n    texture2D(tex, tile2UV + rUV, -16.0),\n    fract(idx)\n  );\n}\n\n\n\n\nvoid main() {\n  vec2 uv = gl_FragCoord.xy / resolution * 2.0 - 1.0;\n  mat4 clipToEye = inverse(projection);\n  mat4 eyeToWorld = inverse(model * view);\n  vec4 clipNear = vec4(uv, -1.0, 1.0);\n  vec4 clipFar = vec4(uv, 1.0, 1.0);\n  vec4 eyeNear = clipToEye * clipNear;\n  vec4 eyeFar = clipToEye * clipFar;\n  vec4 worldNear = eyeToWorld * eyeNear;\n  vec4 worldFar = eyeToWorld * eyeFar;\n  vec3 ro = worldNear.xyz / worldNear.w;\n  vec3 rd = normalize((worldFar.xyz / worldFar.w) - ro);\n\n  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);\n  float t1, t2;\n  vec3 nml;\n  Box volumeBox = Box(volumeBounds[0], volumeBounds[1]);\n  vec3 volumeBoxSize = volumeBounds[1] - volumeBounds[0];\n  Box clipBox = Box(clipBounds[0], clipBounds[1]);\n  vec3 clipBoxSize = clipBounds[1] - clipBounds[0];\n  float clipBoxLength = length(clipBoxSize);\n  if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {\n    // vec3 uvw = (ro + rd * t2);\n    // if ( uIsocaps && all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {\n    //   vec4 c = texture(uTexture, uvw, -16.0);\n    //   if (abs(c.r - uIsoLevel) <= uIsoRange) {\n    //     vec4 col = getCapColor(uvw, c);\n    //     color = 1.0 - col;\n    //     color.a = sqrt(c.r) * c.a;\n    //   }\n    // }\n    vec3 farHit = ro + rd * t2;\n    vec4 accum = vec4(0.0);\n    float steps = 256.0;\n    float stepSize = clipBoxLength / steps;\n    for (float i=0.0; i<256.0; i++) {\n      vec3 p = (farHit - rd * i * stepSize);\n      vec3 uvw = p / volumeBoxSize;\n      if (all(lessThanEqual(p, clipBounds[1])) && all(greaterThanEqual(p, clipBounds[0])) ) {\n        vec4 c = readTex(texture, uvw);\n        float intensity = clamp((c.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);\n\n        if (useColormap) {\n          c.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;\n        }\n\n        if (useAlphamap) {\n          c.a = texture2D(alphamap, vec2(intensity, 0.0)).r * opacity;\n        } else {\n          c.a = intensity * opacity;\n        }\n\n        accum.rgb = mix(accum.rgb, c.rgb, c.a);\n        accum.a += (1.0 - accum.a) * c.a;\n      }\n    }\n    color = accum;\n    // color.rgb *= color.a;\n  }\n\n  gl_FragColor = color;\n}"
 
 exports.meshShader = {
   vertex:   triVertSrc,
@@ -2442,6 +2448,10 @@ function(params) {
 
   var volumeBounds = this.bounds;
 
+  var texDims = this.texDims;
+  var tileCounts = this.tileCounts;
+  var tileDims = this.tileDims;
+
   var uniforms = {
     model:      model,
     view:       view,
@@ -2449,6 +2459,10 @@ function(params) {
 
     volumeBounds: volumeBounds,
     clipBounds: clipBounds,
+
+    texDims: texDims,
+    tileCounts: tileCounts,
+    tileDims: tileDims,
 
     intensityBounds: this.intensityBounds,
 
@@ -28999,7 +29013,7 @@ module.exports = function createVolume(params, bounds) {
 		];
 	}
 
-	var maxTextureSize = 2048; //gl.getParameter(gl.MAX_TEXTURE_SIZE);
+	var maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
 	var tilesX = Math.floor(maxTextureSize / width);
 	var tilesY = Math.floor(maxTextureSize / height);
@@ -29011,8 +29025,14 @@ module.exports = function createVolume(params, bounds) {
 
 	tilesY = Math.ceil(depth / tilesX);
 
+	if (tilesY === 1 && tilesX > depth) {
+		tilesX = depth;
+	}
+
 	var texWidth = Math.pow(2, Math.ceil(Math.log2(tilesX * width)));
 	var texHeight = Math.pow(2, Math.ceil(Math.log2(tilesY * height)));
+
+	console.log(texWidth, texHeight, tilesX, tilesY, width, height);
 
 	var valuesImgZ = new Uint8Array(texWidth * texHeight * 4);
 
@@ -29278,6 +29298,10 @@ module.exports = function createVolume(params, bounds) {
 		isoBounds: isoBounds,
 		intensityBounds: intensityBounds
 	});
+
+	mesh.tileDims = [width, height];
+	mesh.tileCounts = [tilesX, tilesY];
+	mesh.texDims = [texWidth, texHeight];
 
 	mesh.bounds = volumeBounds;
 	mesh.clipBounds = clipBounds || volumeBounds;
