@@ -66,7 +66,7 @@ module.exports = function createVolume(params, bounds) {
 		];
 	}
 
-	var maxTextureSize = 2048; //gl.getParameter(gl.MAX_TEXTURE_SIZE);
+	var maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
 	var tilesX = Math.floor(maxTextureSize / width);
 	var tilesY = Math.floor(maxTextureSize / height);
@@ -78,8 +78,14 @@ module.exports = function createVolume(params, bounds) {
 
 	tilesY = Math.ceil(depth / tilesX);
 
+	if (tilesY === 1 && tilesX > depth) {
+		tilesX = depth;
+	}
+
 	var texWidth = Math.pow(2, Math.ceil(Math.log2(tilesX * width)));
 	var texHeight = Math.pow(2, Math.ceil(Math.log2(tilesY * height)));
+
+	console.log(texWidth, texHeight, tilesX, tilesY, width, height);
 
 	var valuesImgZ = new Uint8Array(texWidth * texHeight * 4);
 
@@ -345,6 +351,10 @@ module.exports = function createVolume(params, bounds) {
 		isoBounds: isoBounds,
 		intensityBounds: intensityBounds
 	});
+
+	mesh.tileDims = [width, height];
+	mesh.tileCounts = [tilesX, tilesY];
+	mesh.texDims = [texWidth, texHeight];
 
 	mesh.bounds = volumeBounds;
 	mesh.clipBounds = clipBounds || volumeBounds;
