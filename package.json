@@ -1,6 +1,6 @@
 {
   "name": "gl-volume3d",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "3D volume renderer",
   "main": "volume.js",
   "directories": {
