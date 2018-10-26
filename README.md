@@ -69,7 +69,7 @@ Creates a volume visualization out of a 3D array.
     + `colormap` *(Optional)* Name of the color map to use.
     + `alphamap` *(Optional)* Opacity lookup table, a 256-element array that maps intensity to voxel opacity. The first element is intensity 0 (after intensityBounds mapping), the last element is intensity 1.
     + `opacity` *(Optional)* Multiplier for the voxel opacities. Used for controlling the volume transparency.
-	* `clipBounds` *(Optional)*is a bounds object that tells what part of the 3D array to display. It defaults to [ [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]], [meshgrid[0][-1], meshgrid[1][-1], meshgrid[2][-1]] ].
+	* `clipBounds` *(Optional)* Bounds object that tells what part of the volume to display. It defaults to [ [meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]], [meshgrid[0][-1], meshgrid[1][-1], meshgrid[2][-1]] ].
 
 **Returns** A volume plot object that can be passed to gl-mesh3d.
 
