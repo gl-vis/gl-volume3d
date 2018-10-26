@@ -26,7 +26,6 @@ var canvas = document.createElement('canvas')
 document.body.appendChild(canvas)
 window.addEventListener('resize', require('canvas-fit')(canvas))
 var gl = canvas.getContext('webgl', {alpha: false})
-gl.getExtension('OES_standard_derivatives');
 gl.clearColor(1,1,1,1)
 
 getData('example/data/mri.csv', function(mricsv) {
@@ -36,45 +35,37 @@ getData('example/data/mri.csv', function(mricsv) {
   var mri = parseCSV(mricsv.replace(/\r?\n/g, ','))[0];
   mri.pop();
 
-  var bounds = [[0,0,0], [25, 25, 25]]
+  var bounds = [[0,0,0], [25, 12.5, 25]]
 
   var values = [];
   var meshgrid = [[],[],[]];
   for (var i=0; i<128; i++) meshgrid[0].push(bounds[0][0] + (bounds[1][0]-bounds[0][0]) * i/127);
-  for (var i=0; i<128; i++) meshgrid[1].push(bounds[0][1] + (bounds[1][1]-bounds[0][1]) * i/127);
+  for (var i=0; i<27; i++) meshgrid[1].push(bounds[0][1] + (bounds[1][1]-bounds[0][1]) * i/27);
   for (var i=0; i<128; i++) meshgrid[2].push(bounds[0][2] + (bounds[1][2]-bounds[0][2]) * i/127);
-
-  for (var z=0; z<128; z++) {
-    for (var y=0; y<128; y++) {
-      for (var x=0; x<128; x++) {
-        values.push(Math.min((x/127),(y/127),(z/127)));
-      }
-    }
-  }
 
   var alphamap = [];
   for (var i=0; i<256; i++) {
     var v = i/255;
-    var a = v; //Math.cos(v * Math.PI*2 - Math.PI) * 0.5 + 0.5;
-    alphamap[i] = a;
+    var a = Math.cos(v * Math.PI*2 - Math.PI) * 0.6 + 0.6;
+    alphamap[i] = Math.min(1, a);
   }
 
   var volume = createVolume(gl, {
-  	values: values,
+  	values: mri,
     meshgrid: meshgrid,
-  	isoBounds: [0, 1],
-  	intensityBounds: [0, 1],
-    opacity: 0.05,
+  	isoBounds: [10, 88],
+  	intensityBounds: [40, 70],
+    opacity: 0.1,
     alphamap: alphamap,
     colormap: 'jet',
     clipBounds: [
       [0, 0, 0],
-      [25, 25, 25]
+      [25, 10.5, 25]
     ]
   })
 
   var camera = createCamera(canvas, {
-    eye:    [90, 90, 90],
+    eye:    [-20, 20, -20],
     center: [0.5*(bounds[0][0]+bounds[1][0]),
     0.5*(bounds[0][1]+bounds[1][1]),
     0.5*(bounds[0][2]+bounds[1][2])],
