@@ -5,19 +5,30 @@ var mat4 = require('gl-mat4');
 var createTexture = require('gl-texture2d');
 var createTriMesh = require('./lib/simplemesh.js');
 
+console.log("Hello from volume3D");
+
 module.exports = function createVolume(params) {
 	var gl = params.gl;
 	if (!gl) {
 		gl = arguments[0];
 		params = arguments[1];
 	}
-	var rawIsoBounds = params.isoBounds, 
-		rawIntensityBounds = params.intensityBounds, 
-		clipBounds = params.clipBounds, 
-		colormap = params.colormap, 
-		alphamap = params.alphamap, 
+
+	console.log("params=", params);
+
+
+
+	var rawIsoBounds = params.isoBounds,
+		rawIntensityBounds = params.intensityBounds,
+		clipBounds = params.clipBounds,
+		colormap = params.colormap,
+		alphamap = params.alphamap,
 		opacity = params.opacity,
 		meshgrid = params.meshgrid;
+
+	console.log("meshgrid[0]=", meshgrid[0]);
+	console.log("meshgrid[1]=", meshgrid[1]);
+	console.log("meshgrid[2]=", meshgrid[2]);
 
 	var values = params.values;
 	var dimensions = [
@@ -127,7 +138,12 @@ module.exports = function createVolume(params) {
 	var positions = [];
 	var triangleUVWs = [];
 
+	console.log("BEFORE meshgrid=", meshgrid);
+
 	if (!meshgrid) {
+
+		console.log("inside if!");
+
 		meshgrid = [[], [], []];
 		for (var i = 0; i < width; i++) {
 			meshgrid[0][i] = i;
@@ -139,6 +155,8 @@ module.exports = function createVolume(params) {
 			meshgrid[2][i] = i;
 		}
 	}
+
+	console.log("AFTER: meshgrid=", meshgrid);
 
 	var modelSX = meshgrid[0][0];
 	var modelSY = meshgrid[1][0];
@@ -314,7 +332,7 @@ module.exports = function createVolume(params) {
 	}
 
 	// console.log(
-	// 	tilesX, tilesY, 
+	// 	tilesX, tilesY,
 	// 	meshgrid[0].length, meshgrid[1].length, meshgrid[2].length,
 	// 	tex.shape[0], tex.shape[1]
 	// );
@@ -323,6 +341,9 @@ module.exports = function createVolume(params) {
 		[meshgrid[0][0], meshgrid[1][0], meshgrid[2][0]],
 		[meshgrid[0][meshgrid[0].length-1], meshgrid[1][meshgrid[1].length-1], meshgrid[2][meshgrid[2].length-1]]
 	];
+
+	console.log("positions=", positions);
+	console.log("triangleUVWs=", triangleUVWs);
 
 	var mesh = createTriMesh(gl, {
 		raySteps: params.raySteps || 256,
@@ -339,13 +360,17 @@ module.exports = function createVolume(params) {
 		intensityBounds: intensityBounds
 	});
 
+	console.log("mesh.positions=", mesh.positions);
+	console.log("mesh.triangleUVWs=", mesh.triangleUVWs);
+
+
 	mesh.tileDims = [width, height];
 	mesh.tileCounts = [tilesX, tilesY];
 	mesh.texDims = [texWidth, texHeight];
 
 	mesh.bounds = volumeBounds;
 	mesh.clipBounds = clipBounds || volumeBounds;
-	
+
 	return mesh;
 };
 

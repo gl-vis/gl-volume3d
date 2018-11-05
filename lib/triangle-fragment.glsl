@@ -1,9 +1,8 @@
-#define RAY_STEPS 256.0
-
-precision mediump float;
+precision highp float;
 
 #pragma glslify: cookTorrance = require(glsl-specular-cook-torrance)
 
+const float RAY_STEPS = 256.0;
 
 uniform vec3 clipBounds[2];
 uniform vec3 volumeBounds[2];
@@ -37,7 +36,7 @@ uniform vec2 tileDims;
 varying vec3 f_lightDirection
            , f_eyeDirection
            , f_data;
-varying vec3 f_uvw;
+//varying vec3 f_uvw;
 
 struct Box {
   vec3 minPoint;
@@ -124,13 +123,13 @@ vec2 getTileUV(float tileIdx) {
   return tileUV;
 }
 
-vec4 readTex(sampler2D tex, vec3 uvw) {
+vec4 readTex(sampler2D tex, vec3 uvw_in) {
   float fidx, y, x;
 
-  float slice = uvw.z;
+  float slice = uvw_in.z;
   float tileCount = tileCounts.x * tileCounts.y;
   float idx = slice * (tileCount-1.0);
-  vec2 pxUV = uvw.xy * (tileDims-1.0);
+  vec2 pxUV = uvw_in.xy * (tileDims-1.0);
   pxUV += 0.5;
   vec2 rUV = pxUV / (texDims-1.0);
 
@@ -169,11 +168,11 @@ void main() {
   vec3 clipBoxSize = clipBounds[1] - clipBounds[0];
   float clipBoxLength = length(clipBoxSize);
   if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {
-    // vec3 uvw = (ro + rd * t2);
-    // if ( uIsocaps && all(lessThanEqual(uvw, vec3(1.0))) && all(greaterThanEqual(uvw, vec3(0.0))) ) {
-    //   vec4 c = texture(uTexture, uvw, -16.0);
+    // vec3 myUVW = (ro + rd * t2);
+    // if ( uIsocaps && all(lessThanEqual(myUVW, vec3(1.0))) && all(greaterThanEqual(myUVW, vec3(0.0))) ) {
+    //   vec4 c = texture(uTexture, myUVW, -16.0);
     //   if (abs(c.r - uIsoLevel) <= uIsoRange) {
-    //     vec4 col = getCapColor(uvw, c);
+    //     vec4 col = getCapColor(myUVW, c);
     //     color = 1.0 - col;
     //     color.a = sqrt(c.r) * c.a;
     //   }
@@ -183,9 +182,9 @@ void main() {
     float stepSize = clipBoxLength / RAY_STEPS;
     for (float i = 0.0; i < RAY_STEPS; i++) {
       vec3 p = (farHit - rd * i * stepSize);
-      vec3 uvw = p / volumeBoxSize;
+      vec3 myUVW = p / volumeBoxSize;
       if (all(lessThanEqual(p, clipBounds[1])) && all(greaterThanEqual(p, clipBounds[0])) ) {
-        vec4 c = readTex(texture, uvw);
+        vec4 c = readTex(texture, myUVW);
         float intensity = clamp((c.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
 
         if (useColormap) {
