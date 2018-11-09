@@ -1,6 +1,7 @@
-precision highp float;
+precision mediump float;
 
 #pragma glslify: cookTorrance = require(glsl-specular-cook-torrance)
+//#pragma glslify: outOfRange = require(glsl-out-of-range)
 
 const float RAY_STEPS = 256.0;
 
@@ -147,6 +148,8 @@ vec4 readTex(sampler2D tex, vec3 uvw_in) {
 
 
 void main() {
+  //if (outOfRange(clipBounds[0], clipBounds[1], f_data)) discard;
+
   vec2 uv = gl_FragCoord.xy / resolution * 2.0 - 1.0;
   mat4 clipToEye = inverse(projection);
   mat4 eyeToWorld = inverse(model * view);
@@ -168,15 +171,6 @@ void main() {
   vec3 clipBoxSize = clipBounds[1] - clipBounds[0];
   float clipBoxLength = length(clipBoxSize);
   if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {
-    // vec3 myUVW = (ro + rd * t2);
-    // if ( uIsocaps && all(lessThanEqual(myUVW, vec3(1.0))) && all(greaterThanEqual(myUVW, vec3(0.0))) ) {
-    //   vec4 c = texture(uTexture, myUVW, -16.0);
-    //   if (abs(c.r - uIsoLevel) <= uIsoRange) {
-    //     vec4 col = getCapColor(myUVW, c);
-    //     color = 1.0 - col;
-    //     color.a = sqrt(c.r) * c.a;
-    //   }
-    // }
     vec3 farHit = ro + rd * t2;
     vec4 accum = vec4(0.0);
     float stepSize = clipBoxLength / RAY_STEPS;
