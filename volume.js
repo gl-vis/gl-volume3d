@@ -91,7 +91,7 @@ module.exports = function createVolume(params) {
 
 		var pxOff = tileOff + y * texWidth + x;
 
-		valuesImgZ[pxOff * 4 ] = r;
+		valuesImgZ[pxOff * 4    ] = r;
 		valuesImgZ[pxOff * 4 + 1] = g;
 		valuesImgZ[pxOff * 4 + 2] = b;
 		valuesImgZ[pxOff * 4 + 3] = a;
@@ -136,167 +136,32 @@ module.exports = function createVolume(params) {
 		}
 	}
 
-	var z = 1;
-	var i = meshgrid[2].length-1;
-	for (var y = 1; y < meshgrid[1].length; y++) {
-		for (var x = 1; x < meshgrid[0].length; x++) {
-			var u0 = (x-1) / (meshgrid[0].length-1);
-			var u1 = x / (meshgrid[0].length-1);
-			var v0 = (y-1) / (meshgrid[1].length-1);
-			var v1 = y / (meshgrid[1].length-1);
-
-			positions.push(
-				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
-				meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
-				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
-				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
-				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
-				meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i]
-			);
-			triangleUVWs.push(
-				u0, v0, z,
-				u1, v0, z,
-				u1, v1, z,
-				u0, v0, z,
-				u1, v1, z,
-				u0, v1, z
-			);
-		}
-	}
-	var z = 0;
-	var i = 0;
-	for (var y = 1; y < meshgrid[1].length; y++) {
-		for (var x = 1; x < meshgrid[0].length; x++) {
-			var u0 = (x-1) / (meshgrid[0].length-1);
-			var u1 = x / (meshgrid[0].length-1);
-			var v0 = (y-1) / (meshgrid[1].length-1);
-			var v1 = y / (meshgrid[1].length-1);
-
-			positions.push(
-				meshgrid[0][x-1], meshgrid[1][y  ], meshgrid[2][i],
-				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
-				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i],
-				meshgrid[0][x  ], meshgrid[1][y  ], meshgrid[2][i],
-				meshgrid[0][x  ], meshgrid[1][y-1], meshgrid[2][i],
-				meshgrid[0][x-1], meshgrid[1][y-1], meshgrid[2][i]
-			);
-			triangleUVWs.push(
-				u0, v1, z,
-				u1, v1, z,
-				u0, v0, z,
-				u1, v1, z,
-				u1, v0, z,
-				u0, v0, z
-			);
-		}
-	}
-
-	var y = 0;
-	var i = 0;
-	for (var z = 1; z < meshgrid[2].length; z++) {
-		for (var x = 1; x < meshgrid[0].length; x++) {
-			var u0 = (x-1) / (meshgrid[0].length-1);
-			var u1 = x / (meshgrid[0].length-1);
-			var w0 = (z-1) / (meshgrid[2].length-1);
-			var w1 = z / (meshgrid[2].length-1);
-
-			positions.push(
-				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
-				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
-				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
-				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
-				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
-				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ]
-			);
-			triangleUVWs.push(
-				u0, y, w0,
-				u1, y, w0,
-				u1, y, w1,
-				u0, y, w0,
-				u1, y, w1,
-				u0, y, w1
-			);
-		}
-	}
-	var y = 1;
-	var i = meshgrid[1].length-1;
-	for (var z = 1; z < meshgrid[2].length; z++) {
-		for (var x = 1; x < meshgrid[0].length; x++) {
-			var u0 = (x-1) / (meshgrid[0].length-1);
-			var u1 = x / (meshgrid[0].length-1);
-			var w0 = (z-1) / (meshgrid[2].length-1);
-			var w1 = z / (meshgrid[2].length-1);
-
-			positions.push(
-				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z  ],
-				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
-				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1],
-				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z  ],
-				meshgrid[0][x  ], meshgrid[1][i], meshgrid[2][z-1],
-				meshgrid[0][x-1], meshgrid[1][i], meshgrid[2][z-1]
-			);
-			triangleUVWs.push(
-				u0, y, w1,
-				u1, y, w1,
-				u0, y, w0,
-				u1, y, w1,
-				u1, y, w0,
-				u0, y, w0
-			);
-		}
-	}
-
-	var x = 1;
-	var i = meshgrid[0].length-1;
-	for (var z = 1; z < meshgrid[2].length; z++) {
-		for (var y = 1; y < meshgrid[1].length; y++) {
-			var v0 = (y-1) / (meshgrid[1].length-1);
-			var v1 = y / (meshgrid[1].length-1);
-			var w0 = (z-1) / (meshgrid[2].length-1);
-			var w1 = z / (meshgrid[2].length-1);
-
-			positions.push(
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ]
-			);
-			triangleUVWs.push(
-				x, v0, w0,
-				x, v1, w0,
-				x, v1, w1,
-				x, v0, w0,
-				x, v1, w1,
-				x, v0, w1
-			);
-		}
-	}
 	var x = 0;
 	var i = 0;
-	for (var z = 1; z < meshgrid[2].length; z++) {
-		for (var y = 1; y < meshgrid[1].length; y++) {
-			var v0 = (y-1) / (meshgrid[1].length-1);
-			var v1 = y / (meshgrid[1].length-1);
-			var w0 = (z-1) / (meshgrid[2].length-1);
-			var w1 = z / (meshgrid[2].length-1);
+	for (var z = 1; z < depth; z++) {
+		for (var y = 1; y < height; y++) {
+			var v0 = (y-1) / (height-1);
+			var v1 = y     / (height-1);
+			var w0 = (z-1) / (depth-1);
+			var w1 = z     / (depth-1);
 
 			positions.push(
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
 				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
 				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ],
+
+				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
 				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1]
+				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ]
 			);
 			triangleUVWs.push(
-				x, v0, w1,
-				x, v1, w1,
 				x, v0, w0,
 				x, v1, w1,
+				x, v0, w1,
+
+				x, v0, w0,
 				x, v1, w0,
-				x, v0, w0
+				x, v1, w1
 			);
 		}
 	}
