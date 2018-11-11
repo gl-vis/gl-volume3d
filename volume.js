@@ -136,12 +136,11 @@ module.exports = function createVolume(params) {
 		}
 	}
 
+	var ni = width - 1;
+	var nj = height - 1;
+	var nk = depth - 1;
 
 	for (var q = 0; q < 6; q++) {
-
-		var ni = width - 1;
-		var nj = height - 1;
-		var nk = depth - 1;
 
 		var start_i = 0;
 		var start_j = 0;
