@@ -137,45 +137,101 @@ module.exports = function createVolume(params) {
 	}
 
 
-	var ni = width -1;
-	var nj = height - 1;
-	var nk = depth - 1;
-	var i = 0;
-	for (var j = 0; j < nj; j++) {
-		for (var k = 0; k < nk; k++) {
-			var u = 0;
-			var v0 = j / nj;
-			var v1 = (j + 1) / nj;
-			var w0 = k / nk;
-			var w1 = (k + 1 ) / nk;
+	for (var q = 0; q < 6; q++) {
 
-			var x = meshgrid[0][i];
-			var y0 = meshgrid[1][j];
-			var y1 = meshgrid[1][j+1];
-			var z0 = meshgrid[2][k];
-			var z1 = meshgrid[2][k+1];
+		var ni = width - 1;
+		var nj = height - 1;
+		var nk = depth - 1;
 
-			positions.push(
-				x, y0, z0,
-				x, y1, z1,
-				x, y0, z1,
+		var start_i = 0;
+		var start_j = 0;
+		var start_k = 0;
 
-				x, y0, z0,
-				x, y1, z0,
-				x, y1, z1
-			);
-			triangleUVWs.push(
-				u, v0, w0,
-				u, v1, w1,
-				u, v0, w1,
+		var stop_i = ni - 1;
+		var stop_j = nj - 1;
+		var stop_k = nk - 1;
 
-				u, v0, w0,
-				u, v1, w0,
-				u, v1, w1
-			);
+		if (q === 0) { stop_i = start_i; }
+		if (q === 1) { stop_j = start_j; }
+		if (q === 2) { stop_k = start_k; }
+
+		if (q === 3) { start_i = stop_i; }
+		if (q === 4) { start_j = stop_j; }
+		if (q === 5) { start_k = stop_k; }
+
+		for (var i = start_i; i <= stop_i; i++) {
+			for (var j = start_j; j <= stop_j; j++) {
+				for (var k = start_k; k <= stop_k; k++) {
+					var u0 = i / ni;
+					var v0 = j / nj;
+					var w0 = k / nk;
+					var u1 = (i + 1) / ni;
+					var v1 = (j + 1) / nj;
+					var w1 = (k + 1) / nk;
+
+					var x0 = meshgrid[0][i];
+					var y0 = meshgrid[1][j];
+					var z0 = meshgrid[2][k];
+					var x1 = meshgrid[0][i+1];
+					var y1 = meshgrid[1][j+1];
+					var z1 = meshgrid[2][k+1];
+
+					if (q === 0) { u1 = u0;	x1 = x0; }
+					if (q === 1) { v1 = v0;	y1 = y0; }
+					if (q === 2) { w1 = w0;	z1 = z0; }
+
+					if (q === 3) { u0 = u1;	x0 = x1; }
+					if (q === 4) { v0 = v1;	y0 = y1; }
+					if (q === 5) { w0 = w1;	z0 = z1; }
+
+					// front-0:
+					positions.push(
+						x1, y0, z0,
+						x0, y1, z0,
+						x0, y0, z1
+					);
+					triangleUVWs.push(
+						u1, v0, w0,
+						u0, v1, w0,
+						u0, v0, w1
+					);
+					// front-1:
+					positions.push(
+						x0, y1, z1,
+						x1, y0, z1,
+						x1, y1, z0
+					);
+					triangleUVWs.push(
+						u0, v1, w1,
+						u1, v0, w1,
+						u1, v1, w0
+					);
+					// back-0:
+					positions.push(
+						x0, y1, z0,
+						x1, y0, z0,
+						x0, y0, z1
+					);
+					triangleUVWs.push(
+						u0, v1, w0,
+						u1, v0, w0,
+						u0, v0, w1
+					);
+					// back-1:
+					positions.push(
+						x1, y0, z1,
+						x0, y1, z1,
+						x1, y1, z0
+					);
+					triangleUVWs.push(
+						u1, v0, w1,
+						u0, v1, w1,
+						u1, v1, w0
+					);
+				}
+			}
 		}
 	}
-
 	// console.log(
 	// 	tilesX, tilesY,
 	// 	meshgrid[0].length, meshgrid[1].length, meshgrid[2].length,
