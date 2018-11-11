@@ -136,32 +136,32 @@ module.exports = function createVolume(params) {
 		}
 	}
 
-	var x = 0;
 	var i = 0;
-	for (var z = 1; z < depth; z++) {
-		for (var y = 1; y < height; y++) {
-			var v0 = (y-1) / (height-1);
-			var v1 = y     / (height-1);
-			var w0 = (z-1) / (depth-1);
-			var w1 = z     / (depth-1);
+	for (var j = 1; j < height; j++) {
+		for (var k = 1; k < depth; k++) {
+			var u = 0;
+			var v0 = (j-1) / (height-1);
+			var v1 = j     / (height-1);
+			var w0 = (k-1) / (depth-1);
+			var w1 = k     / (depth-1);
 
 			positions.push(
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ],
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z  ],
+				meshgrid[0][i], meshgrid[1][j-1], meshgrid[2][k-1],
+				meshgrid[0][i], meshgrid[1][j  ], meshgrid[2][k  ],
+				meshgrid[0][i], meshgrid[1][j-1], meshgrid[2][k  ],
 
-				meshgrid[0][i], meshgrid[1][y-1], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z-1],
-				meshgrid[0][i], meshgrid[1][y  ], meshgrid[2][z  ]
+				meshgrid[0][i], meshgrid[1][j-1], meshgrid[2][k-1],
+				meshgrid[0][i], meshgrid[1][j  ], meshgrid[2][k-1],
+				meshgrid[0][i], meshgrid[1][j  ], meshgrid[2][k  ]
 			);
 			triangleUVWs.push(
-				x, v0, w0,
-				x, v1, w1,
-				x, v0, w1,
+				u, v0, w0,
+				u, v1, w1,
+				u, v0, w1,
 
-				x, v0, w0,
-				x, v1, w0,
-				x, v1, w1
+				u, v0, w0,
+				u, v1, w0,
+				u, v1, w1
 			);
 		}
 	}
