@@ -136,23 +136,33 @@ module.exports = function createVolume(params) {
 		}
 	}
 
+
+	var ni = width -1;
+	var nj = height - 1;
+	var nk = depth - 1;
 	var i = 0;
-	for (var j = 1; j < height; j++) {
-		for (var k = 1; k < depth; k++) {
+	for (var j = 0; j < nj; j++) {
+		for (var k = 0; k < nk; k++) {
 			var u = 0;
-			var v0 = (j-1) / (height-1);
-			var v1 = j     / (height-1);
-			var w0 = (k-1) / (depth-1);
-			var w1 = k     / (depth-1);
+			var v0 = j / nj;
+			var v1 = (j + 1) / nj;
+			var w0 = k / nk;
+			var w1 = (k + 1 ) / nk;
+
+			var x = meshgrid[0][i];
+			var y0 = meshgrid[1][j];
+			var y1 = meshgrid[1][j+1];
+			var z0 = meshgrid[2][k];
+			var z1 = meshgrid[2][k+1];
 
 			positions.push(
-				meshgrid[0][i], meshgrid[1][j-1], meshgrid[2][k-1],
-				meshgrid[0][i], meshgrid[1][j  ], meshgrid[2][k  ],
-				meshgrid[0][i], meshgrid[1][j-1], meshgrid[2][k  ],
+				x, y0, z0,
+				x, y1, z1,
+				x, y0, z1,
 
-				meshgrid[0][i], meshgrid[1][j-1], meshgrid[2][k-1],
-				meshgrid[0][i], meshgrid[1][j  ], meshgrid[2][k-1],
-				meshgrid[0][i], meshgrid[1][j  ], meshgrid[2][k  ]
+				x, y0, z0,
+				x, y1, z0,
+				x, y1, z1
 			);
 			triangleUVWs.push(
 				u, v0, w0,
