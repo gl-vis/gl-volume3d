@@ -16,9 +16,9 @@ module.exports = function createVolume(params) {
 		colormap = params.colormap,
 		alphamap = params.alphamap,
 		opacity = params.opacity,
+		values = params.values,
 		meshgrid = params.meshgrid;
 
-	var values = params.values;
 	var width  = meshgrid[0].length;
 	var height = meshgrid[1].length;
 	var depth  = meshgrid[2].length;
@@ -104,7 +104,7 @@ module.exports = function createVolume(params) {
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.shape[0], tex.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
 
 	var positions = [];
-
+/*
 	if (!meshgrid) {
 		meshgrid = [[], [], []];
 		for (var i = 0; i < width; i++) {
@@ -117,10 +117,20 @@ module.exports = function createVolume(params) {
 			meshgrid[2][i] = i;
 		}
 	}
-
+*/
 	var ni = width - 1;
 	var nj = height - 1;
 	var nk = depth - 1;
+
+	var min_x = meshgrid[0][0];
+	var min_y = meshgrid[1][0];
+	var min_z = meshgrid[2][0];
+
+	var max_x = meshgrid[0][ni];
+	var max_y = meshgrid[1][nj];
+	var max_z = meshgrid[2][nk];
+
+	var volumeBounds = [[min_x, min_y, min_z], [max_x, max_y, max_z]];
 
 	for (var q = 0; q < 6; q++) {
 
@@ -158,28 +168,15 @@ module.exports = function createVolume(params) {
 					if (q === 4) { y0 = y1; }
 					if (q === 5) { z0 = z1; }
 
-					// front-0:
 					positions.push(
 						x1, y0, z0,
 						x0, y1, z0,
 						x0, y0, z1
 					);
-					// front-1:
+
 					positions.push(
 						x0, y1, z1,
 						x1, y0, z1,
-						x1, y1, z0
-					);
-					// back-0:
-					positions.push(
-						x0, y1, z0,
-						x1, y0, z0,
-						x0, y0, z1
-					);
-					// back-1:
-					positions.push(
-						x1, y0, z1,
-						x0, y1, z1,
 						x1, y1, z0
 					);
 				}
@@ -187,18 +184,7 @@ module.exports = function createVolume(params) {
 		}
 	}
 
-	var volumeBounds = [
-		[
-			meshgrid[0][0],
-			meshgrid[1][0],
-			meshgrid[2][0]
-		],
-		[
-			meshgrid[0][meshgrid[0].length-1],
-			meshgrid[1][meshgrid[1].length-1],
-			meshgrid[2][meshgrid[2].length-1]
-		]
-	];
+
 
 	var mesh = createTriMesh(gl, {
 		raySteps: params.raySteps || 256,
