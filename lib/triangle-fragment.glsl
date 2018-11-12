@@ -37,7 +37,6 @@ uniform vec2 tileDims;
 varying vec3 f_lightDirection
            , f_eyeDirection
            , f_data;
-//varying vec3 f_uvw;
 
 struct Box {
   vec3 minPoint;
@@ -124,13 +123,13 @@ vec2 getTileUV(float tileIdx) {
   return tileUV;
 }
 
-vec4 readTex(sampler2D tex, vec3 uvw_in) {
+vec4 readTex(sampler2D tex, vec3 uvw) {
   float fidx, y, x;
 
-  float slice = uvw_in.z;
+  float slice = uvw.z;
   float tileCount = tileCounts.x * tileCounts.y;
   float idx = slice * (tileCount-1.0);
-  vec2 pxUV = uvw_in.xy * (tileDims-1.0);
+  vec2 pxUV = uvw.xy * (tileDims-1.0);
   pxUV += 0.5;
   vec2 rUV = pxUV / (texDims-1.0);
 
@@ -165,21 +164,22 @@ void main() {
   vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
   float t1, t2;
   vec3 nml;
-  Box volumeBox = Box(volumeBounds[0], volumeBounds[1]);
+
   vec3 volumeBoxSize = volumeBounds[1] - volumeBounds[0];
   Box clipBox = Box(clipBounds[0], clipBounds[1]);
-  vec3 clipBoxSize = clipBounds[1] - clipBounds[0];
-  float clipBoxLength = length(clipBoxSize);
+  float clipBoxLength = length(clipBounds[1] - clipBounds[0]);
   if (boxIntersect(ro, rd, clipBox, t1, t2, nml)) {
     vec3 farHit = ro + rd * t2;
     vec4 accum = vec4(0.0);
     float stepSize = clipBoxLength / RAY_STEPS;
     for (float i = 0.0; i < RAY_STEPS; i++) {
       vec3 p = (farHit - rd * i * stepSize);
-      vec3 myUVW = p / volumeBoxSize;
-      if (all(lessThanEqual(p, clipBounds[1])) && all(greaterThanEqual(p, clipBounds[0])) ) {
-        vec4 c = readTex(texture, myUVW);
-        float intensity = clamp((c.r - intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
+      vec3 uvw = p / volumeBoxSize;
+      if (all(lessThanEqual   (p, clipBounds[1])) &&
+          all(greaterThanEqual(p, clipBounds[0]))) {
+        vec4 c = readTex(texture, uvw);
+        float intensity = clamp((c.r - // why Red?
+          intensityBounds[0]) / (intensityBounds[1] - intensityBounds[0]), 0.0, 1.0);
 
         if (useColormap) {
           c.rgb = texture2D(colormap, vec2(intensity, 0.0)).rgb;

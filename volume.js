@@ -19,9 +19,9 @@ module.exports = function createVolume(params) {
 		meshgrid = params.meshgrid;
 
 	var values = params.values;
-	var width = meshgrid[0].length;
+	var width  = meshgrid[0].length;
 	var height = meshgrid[1].length;
-	var depth = meshgrid[2].length;
+	var depth  = meshgrid[2].length;
 
 	var isoBounds = [Infinity, -Infinity];
 
@@ -103,25 +103,7 @@ module.exports = function createVolume(params) {
 	tex.bind();
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.shape[0], tex.shape[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, valuesImgZ);
 
-	// var canvas = document.createElement('canvas');
-	// canvas.width = tex.shape[0];
-	// canvas.height = tex.shape[1];
-	// var ctx = canvas.getContext('2d');
-	// var id = ctx.getImageData(0,0,tex.shape[0], tex.shape[1]);
-	// for (var i=0; i<id.data.length; i++) {
-	// 	 id.data[i] = valuesImgZ[i];
-	// }
-	// ctx.putImageData(id, 0, 0);
-	// document.body.appendChild(canvas);
-	// canvas.style.position='absolute';
-	// canvas.style.zIndex = 10;
-	// canvas.style.left = canvas.style.top = '0px';
-
-
-	// Create Z stack mesh [z grows]
-
 	var positions = [];
-	var triangleUVWs = [];
 
 	if (!meshgrid) {
 		meshgrid = [[], [], []];
@@ -161,13 +143,6 @@ module.exports = function createVolume(params) {
 		for (var i = start_i; i <= stop_i; i++) {
 			for (var j = start_j; j <= stop_j; j++) {
 				for (var k = start_k; k <= stop_k; k++) {
-					var u0 = i / ni;
-					var v0 = j / nj;
-					var w0 = k / nk;
-					var u1 = (i + 1) / ni;
-					var v1 = (j + 1) / nj;
-					var w1 = (k + 1) / nk;
-
 					var x0 = meshgrid[0][i];
 					var y0 = meshgrid[1][j];
 					var z0 = meshgrid[2][k];
@@ -175,13 +150,13 @@ module.exports = function createVolume(params) {
 					var y1 = meshgrid[1][j+1];
 					var z1 = meshgrid[2][k+1];
 
-					if (q === 0) { u1 = u0;	x1 = x0; }
-					if (q === 1) { v1 = v0;	y1 = y0; }
-					if (q === 2) { w1 = w0;	z1 = z0; }
+					if (q === 0) { x1 = x0; }
+					if (q === 1) { y1 = y0; }
+					if (q === 2) { z1 = z0; }
 
-					if (q === 3) { u0 = u1;	x0 = x1; }
-					if (q === 4) { v0 = v1;	y0 = y1; }
-					if (q === 5) { w0 = w1;	z0 = z1; }
+					if (q === 3) { x0 = x1; }
+					if (q === 4) { y0 = y1; }
+					if (q === 5) { z0 = z1; }
 
 					// front-0:
 					positions.push(
@@ -189,21 +164,11 @@ module.exports = function createVolume(params) {
 						x0, y1, z0,
 						x0, y0, z1
 					);
-					triangleUVWs.push(
-						u1, v0, w0,
-						u0, v1, w0,
-						u0, v0, w1
-					);
 					// front-1:
 					positions.push(
 						x0, y1, z1,
 						x1, y0, z1,
 						x1, y1, z0
-					);
-					triangleUVWs.push(
-						u0, v1, w1,
-						u1, v0, w1,
-						u1, v1, w0
 					);
 					// back-0:
 					positions.push(
@@ -211,31 +176,16 @@ module.exports = function createVolume(params) {
 						x1, y0, z0,
 						x0, y0, z1
 					);
-					triangleUVWs.push(
-						u0, v1, w0,
-						u1, v0, w0,
-						u0, v0, w1
-					);
 					// back-1:
 					positions.push(
 						x1, y0, z1,
 						x0, y1, z1,
 						x1, y1, z0
 					);
-					triangleUVWs.push(
-						u1, v0, w1,
-						u0, v1, w1,
-						u1, v1, w0
-					);
 				}
 			}
 		}
 	}
-	// console.log(
-	// 	tilesX, tilesY,
-	// 	meshgrid[0].length, meshgrid[1].length, meshgrid[2].length,
-	// 	tex.shape[0], tex.shape[1]
-	// );
 
 	var volumeBounds = [
 		[
@@ -253,7 +203,6 @@ module.exports = function createVolume(params) {
 	var mesh = createTriMesh(gl, {
 		raySteps: params.raySteps || 256,
 		positions: positions,
-		triangleUVWs: triangleUVWs,
 
 		texture: tex,
 		colormap: colormap,
